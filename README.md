@@ -39,7 +39,7 @@ Week 10-12 Reflection and Improvements <br />
     * A guide on how to use the resulting code, to be handed to the stakeholders and made available on GitHub
 
 <h3> 2.3 Traceability of Actions </h3>
-We are using Github issues and project wiki to track actions and deliverables.
+> [Decision Log](https://docs.google.com/document/d/1AfgSXgv-pHwiSv7r8mqHihJIXiVt2jJx9cPXHvMyFtY)
 
 <h3> 2.4 Team </h3>
 
