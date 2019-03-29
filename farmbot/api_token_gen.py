@@ -4,7 +4,6 @@ import json
 import urllib.request
 
 load_dotenv()
-
 data = {'user': {'email': os.getenv("EMAIL"), 'password': os.getenv("PASSWORD")}}
 
 req = urllib.request.Request('https://my.farmbot.io/api/tokens')
@@ -16,7 +15,6 @@ token_data = json.loads(raw_json)
 
 the_token = token_data['token']['encoded']
 
-print("\n\nYou will need to know your device_id to use MQTT.\n")
 print("Your device id is: \n" + token_data['token']['unencoded']['bot'] + "\n")
 print("The MQTT Host is: \n" + token_data['token']['unencoded']['mqtt'] + "\n")
 print("The token is: \n" + the_token)

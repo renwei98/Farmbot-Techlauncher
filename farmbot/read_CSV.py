@@ -5,7 +5,8 @@
      * (e.g. in read_commands, update_sequence(self, seq_name, returned_id)
              writes the returned ID back to the YAML file) """
 
-class MapHandler():
+
+class MapHandler:
     def __init__(self):
         self.plant_type = ""
         self.group_number = 0
@@ -13,7 +14,6 @@ class MapHandler():
         self.y_coordinate = 0.0
         self.z_coordinate = 0.0
         self.init_plant_date = (0, 0, 0)
-
 
     def read_csv(self, path_file):
         file = open(path_file, "r")
