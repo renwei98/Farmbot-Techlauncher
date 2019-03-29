@@ -1,2 +1,4 @@
+# Update this file if requirements change for a file to be able to run
+
 paho-mqtt==1.4.0
 python-dotenv==0.10.1

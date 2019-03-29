@@ -2,7 +2,7 @@
    a nice convenient isolated class"""
 
 from read_commands import ActionHandler
-from Read_CSV import MapHandler
+from read_CSV import MapHandler
 import subscribe_to_farmbot.client as client
 import subscribe_to_farmbot.my_device_id as my_device_id
 
