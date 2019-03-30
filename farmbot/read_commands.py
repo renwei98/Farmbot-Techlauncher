@@ -2,14 +2,16 @@
    Sequences and Regimens."""
 
 import yaml
+import rw_internal_data as rw
 
 class ActionHandler():
     def __init__(self,  yaml_file_names, csv_file_names):
         """yaml_file_names : a list of YAML files holding sequences and regimens
            csv_file_names  : a list of CSV files holding map coordinates"""
         self.source_files = {} # {source file : yaml object}
-        self.seq_script = {} # {sequence name : celeryscript}
-        self.reg_script = {} # {regimen name : celeryscript}
+        self.seq_store = {} # {sequence name : internal YAML object}
+        self.reg_store = {} # {regimen name : internal YAML object}
+        self.evt_store = {} # {executable_id : internal YAML object}
         self.map = set(csv_file_names)
         self.load_actions()
 
@@ -33,33 +35,65 @@ class ActionHandler():
                     else:
                         print("Placeholder message for duplicate regimens")
 
-    def convert_sequence(yaml_obj):
-        """yaml_obj: A YAML object representing a sequence
+    def convert_yaml(yaml_obj):
+        """yaml_obj: A YAML object representing a sequence, regimen, or event
            returns: A CeleryScript JSON object of a sequence."""
-           # This function will need to refer to sub-sequences by name
-           # and send them first until you get an id back
-           # The send_actions() function should handle getting IDs
+           script = "{"
+           # If the object is an event
+           if "start_date" in yaml_obj:
+               script  = script + "\n  \"start_time\" : \"" + yaml_obj["start_time"] + "\""
+               if "repeat_event" in yaml_obj:
+               # repeat_event: {every: default 1, unit = "minutes/hours/days/weeks/months/years", until: ???}
+                   script = script + "\n  \"end_time\" : \"" + to_datetime(yaml_obj["repeat_event"]["until"]) + "\""
+                   script = script + "\n  \"repeat\" : " + default_value(yaml_obj["repeat_event"], "every") + "\""
+                   script = script + "\n  \"time_unit\" : \"" + yaml_obj["repeat_event"]["unit"] + "\""
+               else:
+                   script = script + "\n  \"time_unit\" : " + "\"never\""
+                   script = script + "\n  \"repeat\" : " + "\"1\""
+               # This is a big, complicated if-else tree where the user might:
+               #  - Put everything right here, and we have to create the sequences and regimens
+               #  - Refer to a regimen
+               #  - Refer to a sequence
+               #  - Refer to a sequence but make it a regimen right here in this object
+               #
+               # If the user does not refer to another object
+               if type(yaml_obj["action"]) is not str:
+                   if "schedule" in yaml_obj:
+                       script = script + "\n  \"executable_type\" : " + "\"regimen\""
+                   else:
+                       script = script + "\n  \"executable_type\" : " + "\"sequence\""
+               elif rw.get_type(yaml_obj["action"]) == "regimen":
+                   if "schedule" in yaml_obj:
+                       print("The object referred to in Farm Event ") + yaml_obj["name"] + "is already a Regimen and does not need a schedule."
+                       return
+                   script = script + "\n  \"executable_type\" : " + "\"regimen\""
 
+               # script = script + "\n  \"executable_id\" : \"" + rw.get_id(yaml_obj["action"]) + "\""/
+               # script = script + "\n  \"executable_type\" : \"" + rw.get_type(yaml_obj["action"]) + "\""
+    def make_and_send_sequence(list_obj):
+        """list_obj : A list of actions that form a sequence.
+           returns : The ID of the sequence sent, returned from FarmBot
+           This function turns a list of actions into a YAML sequence with a
+           program-set name, then turns it into a CeleryScript command, sends
+           it off and gets the ID back, and writes the YAML sequence object
+           with its name and ID to internal storage."""
 
-    def convert_regimen(yaml_obj):
-        """yaml_obj: A YAML object representing a regimen
-           returns: A CeleryScript JSON object of a regimen."""
-           # This function will need to refer to sequences by name
-           # and send them first until you get an id back
-           # The send_actions() function should handle getting IDs
+    def to_datetime(date_string):
 
-    # ** PATRICK TAKE NOTE **
-    # Call this after sending a sequence, so we can store the returned ID
-    def update_sequence(self, seq_name, returned_id):
-        source_file = self.seq_script[seq_name][1]
-        # Add the ID to the YAML object
-        self.source_files[source_file][seq_name]["id"] = returned_id
-        yaml.dump(self.source_files[source_file], source_file)
+    def default_value(yaml, field):
+        if field == "every":
+            if "every" in yaml:
+                return yaml["every"]
+            else:
+                return str(1)
+        elif field == "speed":
 
-    def update_regimen(self, reg_name, returned_id):
-        source = self.seq_script[seq_name][1]
-        self.source_files[source][seq_name]["id"] = returned_id
-        yaml.dump(self.source_files[source], source)
+    def translate(yaml, field):
+        if field == "time_unit":
+            if yaml["unit"] = "days":
+                return "daily"
+            else:
+                return yaml["unit"][0:-1] + "ly"
 
     def add_seq_source(self, yaml_file):
         """Adds another YAML source file to the SequenceHandler."""
@@ -68,6 +102,12 @@ class ActionHandler():
     def add_map_source(self, csv_file):
         """Adds another map source file to the SequenceHandler."""
         self.map.add(csv_file)
+
+    def delete_regimen(self, name):
+        """Delete the regimen or inform the euser it has not been loaded."""
+
+    def delete_sequence(self, name):
+        """Delete the sequence or inform the euser it has not been loaded."""
 
     def example_sequence():
         """This is for the Regimen code writer to use. From a SequenceHander
