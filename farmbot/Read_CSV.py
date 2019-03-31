@@ -70,7 +70,7 @@ class MapHandler():
                     row['y_coordinate'] = y_coordinate
                     row['z_coordinate'] = z_coordinate
                     row['init_plant_date'] = init_plant_date
-                    row = {'plant_id': row['plant_id'], 'plant_type': row['plant_type'], 
+                 row = {'plant_id': row['plant_id'], 'plant_type': row['plant_type'], 
                            'group_number': row['group_number'], 'x_coordinate': row['x_coordinate'],
                            'y_coordinate': row['y_coordinate'],'z_coordinate': row['z_coordinate'],
                            'init_plant_date': row['init_plant_date']}
