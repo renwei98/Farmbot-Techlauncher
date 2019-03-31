@@ -39,7 +39,10 @@ Week 10-12 Reflection and Improvements <br />
     * A guide on how to use the resulting code, to be handed to the stakeholders and made available on GitHub
 
 <h3> 2.3 Traceability of Actions </h3>
-> [Decision Log](https://docs.google.com/document/d/1AfgSXgv-pHwiSv7r8mqHihJIXiVt2jJx9cPXHvMyFtY)
+
+
+
+>[Decision Log](https://docs.google.com/document/d/1AfgSXgv-pHwiSv7r8mqHihJIXiVt2jJx9cPXHvMyFtYedit?usp=sharing) <br />
 
 <h3> 2.4 Team </h3>
 
@@ -88,6 +91,7 @@ Week 10-12 Reflection and Improvements <br />
 
 >[Github issues](https://github.com/dopfer/Farmbot-Techlauncher/issues)<br />
 >[Weekly Log](https://docs.google.com/spreadsheets/d/1Wc2fRnvIfTPPWfBzSRZM2Uqh6Ayl5jGhBfXq_vXEDsE/edit?usp=sharing) <br />
+>[Gantt Chart](https://docs.google.com/spreadsheets/d/1jeA3NB04pLH-Al9xu7jpajUeytPWd9bDBCCzlKktllg/edit?usp=sharing) <br />
 
 **Legal Documents**
 
