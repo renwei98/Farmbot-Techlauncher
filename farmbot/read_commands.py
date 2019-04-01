@@ -35,6 +35,55 @@ class ActionHandler():
                     else:
                         print("Placeholder message for duplicate regimens")
 
+
+    def to_datetime(date_string):
+
+    def default_value(yaml_obj, field):
+        if field == "every":
+            if "every" in yaml:
+                return yaml["every"]
+            else:
+                return str(1)
+        elif field == "speed":
+
+    def translate(yaml_obj, field):
+        if field == "time_unit":
+            if yaml["unit"] = "days":
+                return "daily"
+            else:
+                return yaml["unit"][0:-1] + "ly"
+
+    def make_and_send_sequence(list_obj):
+        """list_obj : A list of actions that form a sequence.
+           returns : The ID of the sequence sent, returned from FarmBot
+
+           This function turns a list of actions into a YAML sequence with a
+           program-set name, then turns it into a CeleryScript command, sends
+           it off and gets the ID back, and writes the YAML sequence object
+           with its name and ID to internal storage."""
+
+    def make_and_send_regimen(schedule_yaml_obj, id=None):
+        """schedule_yaml_obj : A yaml object that defines a schedule.
+             schedule: [{days: [], times: [], actions: <<list of actions or name of sequence>>}
+             OR
+             schedule: [{every: 4, unit: "minutes/hours/days/weeks/months/years", actions: <<list of actions or name of sequence>>}
+           returns : The ID of the sequence sent, returned from FarmBot
+
+           This function turns a list of actions into a YAML sequence with a
+           program-set name, then turns it into a CeleryScript command, sends
+           it off and gets the ID back, and writes the YAML sequence object
+           with its name and ID to internal storage."""
+
+    def make_and_send_farm_event(list_obj):
+        """list_obj : A list of actions that form a sequence.
+           returns : The ID of the sequence sent, returned from FarmBot
+
+           This function turns a list of actions into a YAML sequence with a
+           program-set name, then turns it into a CeleryScript command, sends
+           it off and gets the ID back, and writes the YAML sequence object
+           with its name and ID to internal storage."""
+
+
     def convert_yaml(yaml_obj):
         """yaml_obj: A YAML object representing a sequence, regimen, or event
            returns: A CeleryScript JSON object of a sequence."""
@@ -43,6 +92,7 @@ class ActionHandler():
            if "start_date" in yaml_obj:
                script  = script + "\n  \"start_time\" : \"" + yaml_obj["start_time"] + "\""
                if "repeat_event" in yaml_obj:
+               # The following is a field in Farm Events:
                # repeat_event: {every: default 1, unit = "minutes/hours/days/weeks/months/years", until: ???}
                    script = script + "\n  \"end_time\" : \"" + to_datetime(yaml_obj["repeat_event"]["until"]) + "\""
                    script = script + "\n  \"repeat\" : " + default_value(yaml_obj["repeat_event"], "every") + "\""
@@ -70,30 +120,6 @@ class ActionHandler():
 
                # script = script + "\n  \"executable_id\" : \"" + rw.get_id(yaml_obj["action"]) + "\""/
                # script = script + "\n  \"executable_type\" : \"" + rw.get_type(yaml_obj["action"]) + "\""
-    def make_and_send_sequence(list_obj):
-        """list_obj : A list of actions that form a sequence.
-           returns : The ID of the sequence sent, returned from FarmBot
-           This function turns a list of actions into a YAML sequence with a
-           program-set name, then turns it into a CeleryScript command, sends
-           it off and gets the ID back, and writes the YAML sequence object
-           with its name and ID to internal storage."""
-
-    def to_datetime(date_string):
-
-    def default_value(yaml, field):
-        if field == "every":
-            if "every" in yaml:
-                return yaml["every"]
-            else:
-                return str(1)
-        elif field == "speed":
-
-    def translate(yaml, field):
-        if field == "time_unit":
-            if yaml["unit"] = "days":
-                return "daily"
-            else:
-                return yaml["unit"][0:-1] + "ly"
 
     def add_seq_source(self, yaml_file):
         """Adds another YAML source file to the SequenceHandler."""
