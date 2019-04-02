@@ -105,7 +105,7 @@ Current Progress: Completed discovery, designing first implementation
 **Milestones:**
 
 Phase 1: ~~Create a Discovery Report to demonstrate project specifications and requirements~~ <br/>
-Phase 2: Release an alpha version of the software, able to send simple commands to the Farmbot, replicating current functionality <br/>
+Phase 2: ~~Release an alpha version of the software, able to send simple commands to the Farmbot, replicating current functionality~~ <br/>
 Phase 3: Release a beta version of the software, implementing most desired commands while integrating external input through text and CSV <br/>
 Phase 4: Finalizing beta version and demonstrating functionality, developing handover documentation <br/>
 
