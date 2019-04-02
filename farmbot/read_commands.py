@@ -75,11 +75,14 @@ class ActionHandler():
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
         script = "{"
+        name
         if "name" in sequence:
-            script = script + "\n  \"name\": " + list_obj["name"] + ","
+            name = list_obj["name"]
         else:
-            script = script + "\n  \"name\": " + "a_n_" + self.names + ","
+            name = self.names
             self.names += 1
+        script = script + "\n  \"name\": " + "a_n_" + name + ","
+
         script =  = script + "\n  \"body\": [ \n    {"
         actions
         if "actions" in sequence:
@@ -97,7 +100,7 @@ class ActionHandler():
                         break
                 script = add_action(script, sequence_id)
 
-        script = script + "    }\n  ]\n}"
+        script = script + "\n      \"uuid\": " + name + "\n    }\n  ]\n}"
         # I got this from publish_to_farmbot.py. Maybe should refactor.
         publish.single(
             'bot/{}/from_clients'.format(device_id),
@@ -109,6 +112,7 @@ class ActionHandler():
                 }
         )
         # GET AN ID BACK FROM THIS MESSAGE AND RETURN IT
+        # the name is the uuid
 
     def make_and_send_regimen(regimen):
         """regimen : A yaml object that includes this:
