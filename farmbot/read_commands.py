@@ -31,7 +31,7 @@ class ActionHandler():
             yaml_file = yaml.load(open(source, "r"))
             self.source_files[source] = yaml_file
 
-    def calc_time_offsets(days, times):
+    def calc_time_offsets(days, times): #test version, 30 days per month, millisecond as unit
         """days : a list of days on which the sequence should be executed
            times : a list of days on which the sequence should be executed
            returns : a list of integers that are time_offset(s) for CeleryScript"""
