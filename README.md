@@ -98,8 +98,8 @@ Week 10-12 Reflection and Improvements <br />
 Not required
 
 <br />
-<h2><a name = "Title5"> 5. UML Diagram </a></h2>
-![UML](https://user-images.githubusercontent.com/26053128/55402121-5c1b5680-559e-11e9-944d-188ca4713532.png)
+<h2><a name = "Title4"> 4. UML Diagram </a></h2>
+<img src="https://user-images.githubusercontent.com/26053128/55402300-dcda5280-559e-11e9-8ad8-fd12aee13a68.png" />
 <br />
 
 <h2><a name = "Title5"> 5. Current Progress </a></h2>
