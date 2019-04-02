@@ -35,7 +35,34 @@ class ActionHandler():
         """days : a list of days on which the sequence should be executed
            times : a list of days on which the sequence should be executed
            returns : a list of integers that are time_offset(s) for CeleryScript"""
+        for x in days:
+           if x == datetime.datetime.now().day:
+               if cal_min(times) > 0:
+                  return cal_min(times)
+               elif x == days[-1]:
+                   idays = (30 - datetime.datetime.now().day + x) * 24 * 60 * 60 * 1000
+                   itimes = cal_min(times)
+                   return itimes + idays
+         elif x > datetime.datetime.now().day:
+              idays = (x - datetime.datetime.now().day) * 24 * 60 * 60 * 1000
+              itimes = cal_min(times)
+              return itimes + idays
+         elif x == days[-1]:
+              idays = (30 - datetime.datetime.now().day + x) * 24 * 60 * 60 * 1000
+              itimes = cal_min(times)
+              return itimes + idays
 
+   def cal_min(ttime):
+      if int(ttime[0:2]) > datetime.datetime.now().hour:
+         itime = ((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001
+         return int(itime)
+      elif int(ttime[0:2]) == datetime.datetime.now().hour and int(ttime[3:5]) > datetime.datetime.now().minute:
+         itime = ((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001
+         return int(itime)
+      else:
+         itime = (((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001)
+         return int(itime)
+            
 
     def add_action(script, action):
         """script : the CeleryScript of the sequence so far
