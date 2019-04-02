@@ -41,7 +41,26 @@ class ActionHandler():
         """script : the CeleryScript of the sequence so far
            action : one action to be added to the sequence, or the ID of a sequence
            returns : the script, with the action added to it"""
-        # Code here
+        # If the action is not the ID of another sequence
+        if action is not int:
+            if action == "move_abs":
+                # format and return
+            elif action == "move_rel":
+                # format and return
+            elif action == "if":
+                # format and return
+            elif action == "find_home":
+                # format and return
+            elif action == "message":
+                # format and return
+            elif action == "wait":
+                # format and return
+            elif action == "read_pin":
+                # format and return
+            elif action == "to_self":
+                # format and return
+            elif action == "to_plant":
+                # format and return
 
     def default_value(yaml_obj, field):
         if field == "every":
@@ -116,9 +135,9 @@ class ActionHandler():
 
     def make_and_send_regimen(regimen):
         """regimen : A yaml object that includes this:
-             schedule: [{days: [], times: [], actions: <<list of actions or name of sequence>>}
+             schedule: [{group: [optional], type: [optional], days: [], times: [], actions: <<list of actions or name of sequence>>}
              OR
-             schedule: [{every: 4, unit: "minutes/hours/days/weeks/months/years", actions: <<list of actions or name of sequence>>}
+             schedule: [{group: [optional], type: [optional], every: 4, unit: "minutes/hours/days/weeks/months/years", actions: <<list of actions or name of sequence>>}
            name : If the regimen is user-defined rather than auto-generated, put its name here
            returns : The ID of the sequence sent, returned from FarmBot
 
