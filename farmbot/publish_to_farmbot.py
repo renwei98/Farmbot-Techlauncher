@@ -1,7 +1,7 @@
 import json
 import paho.mqtt.publish as publish
 import api_token_gen
-from read_commands import ActionHandler
+# from read_commands import ActionHandler
 
 device_id = api_token_gen.token_data['token']['unencoded']['bot']
 mqtt_host = api_token_gen.token_data['token']['unencoded']['mqtt']
@@ -9,15 +9,12 @@ token = api_token_gen.token_data['token']['encoded']
 
 # Prepare the Celery Script command.
 message = {
-    'kind': 'send_message',
-    'args': {
-        'message': 'Hello World!',
-        'message_type': 'success'
-    }
+    'kind': 'take_photo',
+    'args': {}
 }
 
-commands = ActionHandler(["test_sequences.txt"], [])
-commands.make_and_send_sequence(commands.source_files["test_sequences.txt"]["testing"])
+# commands = ActionHandler(["test_sequences.txt"], [])
+# commands.make_and_send_sequence(commands.source_files["test_sequences.txt"]["testing"])
 
 # Send the command to the device. Check Farmbot log for success
 publish.single(
