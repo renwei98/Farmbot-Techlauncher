@@ -1,6 +1,7 @@
 import json
 import paho.mqtt.publish as publish
 import api_token_gen
+from read_commands import ActionHandler
 
 device_id = api_token_gen.token_data['token']['unencoded']['bot']
 mqtt_host = api_token_gen.token_data['token']['unencoded']['mqtt']
@@ -14,6 +15,9 @@ message = {
         'message_type': 'success'
     }
 }
+
+commands = ActionHandler(["test_sequences.txt"], [])
+commands.make_and_send_sequence(commands.source_files["test_sequences.txt"]["testing"])
 
 # Send the command to the device. Check Farmbot log for success
 publish.single(

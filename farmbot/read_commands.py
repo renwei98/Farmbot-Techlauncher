@@ -13,14 +13,14 @@ mqtt_host = api_token_gen.token_data['token']['unencoded']['mqtt']
 token = api_token_gen.token_data['token']['encoded']
 
 class ActionHandler():
-    def __init__(self,  yaml_file_names, csv_file_names):
+    def __init__(self, yaml_file_names, csv_file_names):
         """yaml_file_names : a list of YAML files holding sequences and regimens
            csv_file_names  : a list of CSV files holding map coordinates"""
         self.source_files = {} # {source file : yaml object}
         self.seq_store = {} # {sequence name : internal YAML object}
         self.reg_store = {} # {regimen name : internal YAML object}
         self.evt_store = {} # {executable_id : internal YAML object}
-        self.map = set(csv_file_names)
+        self.maps = set(csv_file_names)
         self.load_actions()
         self.names = 0  # to assign unique names, will need to be replaced later
                         # when we start storing internal data
