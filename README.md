@@ -98,7 +98,11 @@ Week 10-12 Reflection and Improvements <br />
 Not required
 
 <br />
-<h2><a name = "Title4"> 4. Current Progress </a></h2>
+<h2><a name = "Title5"> 5. UML Diagram </a></h2>
+![UML](https://user-images.githubusercontent.com/26053128/55402121-5c1b5680-559e-11e9-944d-188ca4713532.png)
+<br />
+
+<h2><a name = "Title5"> 5. Current Progress </a></h2>
 
 Current Progress: Able to send simple commands to the farmbot using program and see response
 
@@ -110,7 +114,7 @@ Phase 3: Release a beta version of the software, implementing most desired comma
 Phase 4: Finalizing beta version and demonstrating functionality, developing handover documentation <br/>
 
 <br />
-<h2><a name = "Title5"> 5. Technical Tools and Constraints</a></h2>
+<h2><a name = "Title6"> 6. Technical Tools and Constraints</a></h2>
 
 * Available Tools:
     * One FarmBot XL for testing
