@@ -100,7 +100,7 @@ Not required
 <br />
 <h2><a name = "Title4"> 4. Current Progress </a></h2>
 
-Current Progress: Completed discovery, designing first implementation
+Current Progress: Able to send simple commands to the farmbot using program and see response
 
 **Milestones:**
 
