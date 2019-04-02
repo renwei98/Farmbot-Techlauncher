@@ -4,6 +4,14 @@
 import yaml
 import rw_internal_data as rw
 
+import json
+import paho.mqtt.publish as publish
+import api_token_gen
+
+device_id = api_token_gen.token_data['token']['unencoded']['bot']
+mqtt_host = api_token_gen.token_data['token']['unencoded']['mqtt']
+token = api_token_gen.token_data['token']['encoded']
+
 class ActionHandler():
     def __init__(self,  yaml_file_names, csv_file_names):
         """yaml_file_names : a list of YAML files holding sequences and regimens
@@ -27,9 +35,13 @@ class ActionHandler():
         """days : a list of days on which the sequence should be executed
            times : a list of days on which the sequence should be executed
            returns : a list of integers that are time_offset(s) for CeleryScript"""
-        
 
-    def to_datetime(date_string):
+
+    def add_action(script, action):
+        """script : the CeleryScript of the sequence so far
+           action : one action to be added to the sequence, or the ID of a sequence
+           returns : the script, with the action added to it"""
+        # Code here
 
     def default_value(yaml_obj, field):
         if field == "every":
@@ -54,18 +66,52 @@ class ActionHandler():
             else:
                 return yaml_obj["unit"][0:-1] + "ly"
 
-    def make_and_send_sequence(list_obj, name=None):
-        """list_obj : A list of actions that form a sequence.
-           name : If the sequence is user-defined rather than auto-generated, put its name here
+    def make_and_send_sequence(sequence):
+        """sequence : Includes or is a list of actions.
            returns : The ID of the sequence sent, returned from FarmBot
 
            This function turns a list of actions into a YAML sequence with a
            program-set name, then turns it into a CeleryScript command, sends
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
+        script = "{"
+        if "name" in sequence:
+            script = script + "\n  \"name\": " + list_obj["name"] + ","
+        else:
+            script = script + "\n  \"name\": " + "a_n_" + self.names + ","
+            self.names += 1
+        script =  = script + "\n  \"body\": [ \n    {"
+        actions
+        if "actions" in sequence:
+            actions = sequence["actions"]
+        else:
+            actions = sequence
+        for action in actions:
+            if action is not str:
+                script = add_action(script, action)
+            else: # It refers to another sequence by name
+                sequence_id
+                for file in self.source_files:
+                    if action in file:
+                        sequence_id = make_and_send_sequence(file[action])
+                        break
+                script = add_action(script, sequence_id)
+
+        script = script + "    }\n  ]\n}"
+        # I got this from publish_to_farmbot.py. Maybe should refactor.
+        publish.single(
+            'bot/{}/from_clients'.format(device_id),
+            payload=script,
+            hostname=mqtt_host,
+            auth={
+                'username': device_id,
+                'password': token
+                }
+        )
+        # GET AN ID BACK FROM THIS MESSAGE AND RETURN IT
 
     def make_and_send_regimen(regimen):
-        """regimen : A yaml object that looks like this:
+        """regimen : A yaml object that includes this:
              schedule: [{days: [], times: [], actions: <<list of actions or name of sequence>>}
              OR
              schedule: [{every: 4, unit: "minutes/hours/days/weeks/months/years", actions: <<list of actions or name of sequence>>}
@@ -77,37 +123,63 @@ class ActionHandler():
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
         script = "{"
-        script = script + "\n  \"color\": " + default_value(regimen, "color")
+        script = script + "\n  \"color\": " + default_value(regimen, "color") + ","
         if "name" in regimen:
-            script = script + "\n  \"name\": " + regimen["name"]
+            script = script + "\n  \"name\": " + regimen["name"] + ","
         else:
-            script = script + "\n  \"name\": " + "a_n_" + self.names
+            script = script + "\n  \"name\": " + "a_n_" + self.names + ","
             self.names += 1
         list_of_sequences = [] # [(seq_id : , days : , times: [])]
 
+        schedule
+        if "schedule" in regimen:
+            schedule = regimen["schedule"]
+        else:
+            schedule = regimen
         # Get IDs for all the sequences you need
-        for sequence in regimen:
-            sequence_id
-            if type(actions) is not str:
-                sequence_id = make_and_send_sequence(regimen["actions"])
+        # The following only implements the first possibility for regimens.
+        if "days" in schedule or "times" in schedule:
+            for sequence in schedule:
+                sequence_id
+                if type(actions) is not str:
+                    sequence_id = make_and_send_sequence(schedule["actions"])
+                else:
+                    for file in self.source_files:
+                        if yaml_obj["actions"] in file:
+                            seq_obj = file[yaml_obj["actions"]]
+                            if "schedule" in seq_obj:
+                                print("Either they referred to a regimen as a sequence " +
+                                    "or implmented a sequence with regimen fields")
+                            sequence_id = make_and_send_sequence(seq_obj)
+                            break
+                list_of_sequences.append({"id":sequence_id,"days":sequence["days"],
+                    "times":sequence["times"]})
+            # Format all the sequences and their times for the regimen
+            script = script + "\n  \"regimen_items\": [ "
+            for sequence in list_of_sequences:
+                time_offsets = calc_time_offsets(schedule["days"], schedule["times"])
+                for offset in time_offsets:
+                    script = script + "\n    {"
+                    script = script + "\n      \"time_offset\": " + time + ","
+                    script = script + "\n      \"sequence_id\": " + sequence[0]
+                    script = script + "\n    },"
+            script = script[0:-1] # Truncate off the last comma
+            script = script + "\n  ]\n}"
+            # I got this from publish_to_farmbot.py. Maybe should refactor.
+            publish.single(
+                'bot/{}/from_clients'.format(device_id),
+                payload=script,
+                hostname=mqtt_host,
+                auth={
+                    'username': device_id,
+                    'password': token
+                    }
+            )
+            # GET AN ID BACK FROM THIS MESSAGE AND RETURN IT
+            elif "every" in schedule and "unit" in schedule:
+                # Implement the second possibility for schedules here
             else:
-                for file in self.source_files:
-                    if yaml_obj["actions"] in file:
-                        seq_obj = file[yaml_obj["actions"]]
-                        if "schedule" in seq_obj:
-                            print("Either they referred to a regimen as a sequence " +
-                                "or implmented a sequence with regimen fields")
-                        sequence_id = make_and_send_sequence(seq_obj)
-                        break
-            list_of_sequences.append({"id":sequence_id,"days":sequence["days"],
-                "times":sequence["times"]})
-        # Format all the sequences and their times for the regimen
-        script = script + "\n  \"regimen_items\": [ \n    {"
-        for sequence in list_of_sequences:
-            for time in sequence["times"]:
-                script = script + "\n      \"time_offset\": " + calc_time_offsets(regimen["days"], regimen["times"])
-                script = script + "\n      \"sequence_id\": " + sequence[0]
-
+                print("This regimen is not correctly formatted!")
     def make_and_send_farm_event(yaml_obj):
         """yaml_obj : An YAML object we already know is an event.
            returns : The ID of the event sent, returned from FarmBot
@@ -116,16 +188,16 @@ class ActionHandler():
            program-set name, then turns it into a CeleryScript command, sends
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
-           script  = script + "\n  \"start_time\" : \"" + yaml_obj["start_time"] + "\""
+           script  = script + "\n  \"start_time\" : \"" + yaml_obj["start_time"] + "\","
            if "repeat_event" in yaml_obj:
            # The following is a field in Farm Events:
            # repeat_event: {every: default 1, unit = "minutes/hours/days/weeks/months/years", until: ???}
-               script = script + "\n  \"end_time\" : \"" + to_datetime(yaml_obj["repeat_event"]["until"]) + "\""
-               script = script + "\n  \"repeat\" : " + default_value(yaml_obj["repeat_event"], "every") + "\""
-               script = script + "\n  \"time_unit\" : \"" + yaml_obj["repeat_event"]["unit"] + "\""
+               script = script + "\n  \"end_time\" : \"" + to_datetime(yaml_obj["repeat_event"]["until"]) + "\","
+               script = script + "\n  \"repeat\" : " + default_value(yaml_obj["repeat_event"], "every") + "\","
+               script = script + "\n  \"time_unit\" : \"" + yaml_obj["repeat_event"]["unit"] + "\","
            else:
-               script = script + "\n  \"time_unit\" : " + "\"never\""
-               script = script + "\n  \"repeat\" : " + "\"1\""
+               script = script + "\n  \"time_unit\" : " + "\"never\","
+               script = script + "\n  \"repeat\" : " + "\"1\","
 
            # This is a big, complicated if-else tree where the user might:
            #  - Put everything right here, and we have to create the sequences and regimens
@@ -136,7 +208,7 @@ class ActionHandler():
            # If the Farm Event requires you to make a Regimen
            if "schedule" in yaml_obj:
                regimen_id = make_and_send_regimen(yaml_obj["schedule"])
-               script = script + "\n  \"executable_id\" : " + str(regimen_id)
+               script = script + "\n  \"executable_id\" : " + str(regimen_id) + ","
                script = script + "\n  \"executable_type\" : " + "\"regimen\","
            else: # We don't need to extract a regimen from the event
                # No schedule and a list of actions can only mean "create a sequence"
@@ -150,35 +222,16 @@ class ActionHandler():
                            unknown_obj = file[yaml_obj["actions"]]
                            break
                    # No schedule and no list of actions in the parent object
-                   # But the child object is a Regimen
+                   # But the object it refers to is a Regimen
                    if "schedule" in unknown_obj:
-                       if unknown_obj["actions"] is not str:
-                           sequence_id = make_and_send_sequence(unknown_obj["actions"])
-                           regimen_id = make_and_send_regimen(unknown_obj["schedule"], sequence_id)
-                           script = script + "\n  \"executable_id\" : " + str(regimen_id)
-                           script = script + "\n  \"executable_type\" : " + "\"regimen\","
-                       else: # It refers to a sequence by name
-                           regimen_id
-                           for file in self.source_files:
-                               if yaml_obj["actions"] in file:
-                                   sequence_id = make_and_send_sequence(file[yaml_obj["actions"]])
-                                   regimen_id = make_and_send_regimen(yaml_obj["schedule"], sequence_id)
-                                   break
-                           script = script + "\n  \"executable_id\" : " + str(regimen_id)
-                           script = script + "\n  \"executable_type\" : " + "\"regimen\","
-                   else: # Child object is a sequence
-                       if unknown_obj["actions"] is not str:
-                           sequence_id = make_and_send_sequence(unknown_obj["actions"])
-                           script = script + "\n  \"executable_id\" : " + str(sequence_id)
-                           script = script + "\n  \"executable_type\" : " + "\"sequence\","
-                       else: # It refers to a sequence by name
-                           sequence_id
-                           for file in self.source_files:
-                               if yaml_obj["actions"] in file:
-                                   sequence_id = make_and_send_sequence(file[yaml_obj["actions"]])
-                                   break
-                           script = script + "\n  \"executable_id\" : " + str(sequence_id)
-                           script = script + "\n  \"executable_type\" : " + "\"sequence\","
+                       regimen_id = make_and_send_regimen(unknown_obj)
+                       script = script + "\n  \"executable_id\" : " + str(regimen_id)
+                       script = script + "\n  \"executable_type\" : " + "\"regimen\","
+                   else:
+                       # Child object is a sequence
+                       sequence_id = make_and_send_sequence(unknown_obj["actions"])
+                       script = script + "\n  \"executable_id\" : " + str(sequence_id)
+                       script = script + "\n  \"executable_type\" : " + "\"sequence\","
 
            elif rw.get_type(yaml_obj["actions"]) == "regimen":
                if "schedule" in yaml_obj:
