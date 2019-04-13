@@ -13,9 +13,6 @@ message = {
     'args': {}
 }
 
-# commands = ActionHandler(["test_sequences.txt"], [])
-# commands.make_and_send_sequence(commands.source_files["test_sequences.txt"]["testing"])
-
 # Send the command to the device. Check Farmbot log for success
 publish.single(
     'bot/{}/from_clients'.format(device_id),
