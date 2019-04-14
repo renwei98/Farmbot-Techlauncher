@@ -5,15 +5,16 @@ import yaml
 import csv
 
 import json
-import paho.mqtt.publish as publish
-import api_token_gen
+import http_requests as http
 import datetime
+
 
 device_id = api_token_gen.token_data['token']['unencoded']['bot']
 mqtt_host = api_token_gen.token_data['token']['unencoded']['mqtt']
 token = api_token_gen.token_data['token']['encoded']
 
 class ActionHandler():
+    PATH = ".internal_storage/farmbot_commands.txt"
     def __init__(self, yaml_file_name, csv_file_name):
         """yaml_file_name : a YAML file
            csv_file_names : a list of CSV files holding map coordinates"""
@@ -248,8 +249,8 @@ class ActionHandler():
                         script = script + parse_action(action)
             script = script[0:-1] # Truncate off the last comma
             script = "\n      \"uuid\": " + name + "\n    }\n  ]\n}"
-            script = json.dumps(json.loads(script), indent="  ", sort_keys=False))
-            seq_id = get_id_back(script, name)
+            # script = json.dumps(json.loads(script), indent="  ", sort_keys=False))
+            seq_id = http.get_id_back(json.load(script), name)
         else:
             # If this sequence only send the actions of some other sequence
             # but with different types and groups
@@ -321,7 +322,7 @@ class ActionHandler():
                     script = script + "\n    },"
             script = script[0:-1] # Truncate off the last comma
             script = script + "\n  ], \n  \"uuid\": "+name+"\n}"
-            reg_id = get_id_back(script, name)
+            reg_id = get_id_back(json.load(script), name)
             yaml.dump({"name":name, "auto":auto, "kind":"regimen", "id":reg_id}, open(PATH,'a'))
             return reg_id
 
@@ -334,6 +335,7 @@ class ActionHandler():
            program-set name, then turns it into a CeleryScript command, sends
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
+
            script  = script + "\n  \"start_time\" : \"" + yaml_obj["start_time"] + "\","
            if "repeat_event" in yaml_obj:
            # The following is a field in Farm Events:
@@ -356,7 +358,7 @@ class ActionHandler():
                    id, type = obj_from_name(yaml_obj["actions"])
                    script = script + "\n  \"executable_type\" : " + "\"" + type + "\","
            script = script + "\n  \"executable_id\" : " + str(id) +  "\n  \"uuid\": "+name+"\n}"
-           event_id = get_id_back(script,name)
+           event_id = http.get_id_back(json.load(script),name)
            # When converting an int to a bool, the boolean value is True for all integers except 0.
            # auto = false
            yaml.dump({"name" : name, auto: 0, "kind" : "farm_event","id" : event_id}, open(PATH, 'a'))
