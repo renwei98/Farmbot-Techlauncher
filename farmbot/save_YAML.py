@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Apr 17 23:34:05 2019
 
-@author: Wei
-"""
 import yaml, json, sys
 
 file_read = open("file.json", 'r')
