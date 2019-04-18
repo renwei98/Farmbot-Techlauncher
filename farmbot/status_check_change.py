@@ -1,12 +1,15 @@
-class FarmBot:
-    """ A simple class, set to watch its variable. """
-    def init(self, value):
-        self.variable = value
+import pandas as pd
 
-    def set_value(self, new_value):
+    def origin_valu(value):
+        data = pd.read_csv(path)
+        x = data.x_coordinates
+        y = data.y_coordinates 
+        z = data.z_coordinates
+
+    def excuted_value(regimen):
         if self.value != new_value:
             self.pre_change()
-            self.variable = new_value
+        else:
             self.post_change()
 
     def pre_change(self):
