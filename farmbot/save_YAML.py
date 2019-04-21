@@ -1,4 +1,4 @@
-import yaml, json, sys
+import yaml, json
 import requests
 import os
 
@@ -10,10 +10,10 @@ file_handle=open('file.json',mode='w')
 file_handle.write(logs.json())
 
 file_read = open("file.json", 'r')
-if f.mode == 'r':
+if file_read.mode == 'r':
     contents = file_read.read()
-    #contents = sys.stdout.write(yaml.dump(json.load(sys.stdin)))
+    contents = yaml.dump(json.load(contents))
 
-file_handle = open("file.yaml", 'w+')
-file_handle.write(contents)
-file_handle.close()
+file_handle2 = open("file.yaml", 'w+')
+file_handle2.write(contents)
+file_handle2.close()
