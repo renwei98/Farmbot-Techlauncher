@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Apr 24 01:18:11 2019
-
-@author: zmj_w
-"""
 
 import yaml
 
