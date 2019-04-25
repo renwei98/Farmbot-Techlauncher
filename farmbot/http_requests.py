@@ -5,7 +5,7 @@ import os
 load_dotenv()  # Add API_KEY to .env if not done already
 headers = {'Authorization': 'Bearer ' + os.getenv("API_KEY"), 'content-type': 'application/json'}
 
-Get all sequences currently on Farmbot
+# Get all sequences currently on Farmbot
 sequences = requests.get('https://my.farmbot.io/api/sequences', headers=headers)
 print(sequences.json())
 
