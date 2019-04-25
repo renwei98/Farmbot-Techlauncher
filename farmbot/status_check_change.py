@@ -1,26 +1,26 @@
-import pandas as pd
-    data = pd.read_csv(path)
-    x = data.x_coordinates
-    y = data.y_coordinates 
-    z = data.z_coordinates
+import paho.mqtt.client as mqtt
+def subscribe_topics(client,topics,qos=0):
+   print("topic ",topics,"  ",qos)
+   
+   if type(topics) is not list: #topics should be list of tuples
+      if type(topics) is not tuple: 
+         topic_list=[(topics,qos)]
+      else:
+         topic_list=[topics]
+   else:
+      topic_list=topics
+   try:
+      r=client.subscribe(topic_list)
+      if r[0]==0:
+          logging.info("subscribed to topic "+str(topic_list)+" return code" +str(r))
+          client.topic_ack.append([topic_list,r[1],0]) #keep track of subscription
 
-    def excuted_value(regimen):
-        for elemx in x:
-            if elemx != new_value:
-            self.pre_change()
-            else:
-            self.post_change()
-        for elemy in y:
-            if elemy != new_value:
-            self.pre_change()
-            else:
-            self.post_change()
-        for elemz in z:
-            if elemz != new_value:
-            self.pre_change()
-            else:
-            self.post_change()
-    def pre_change(self):
-        print (False)
-    def post_change(self):
-        print (True)
+      else:
+          logging.info("error on subscribing "+str(r))
+          print("error on subscribing "+str(r))
+          return -1
+
+   except Exception as e:
+      logging.info("error on subscribe"+str(e))
+      return -1
+   return r
