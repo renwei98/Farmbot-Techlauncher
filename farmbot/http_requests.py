@@ -39,6 +39,7 @@ json = {
 
 print(type(json))
 
+# Sends CeleryScript objects to FarmBot and returns the ID.
 def get_id_back(json_script, name=None):
     id = -1
     kind = json_script["kind"]
@@ -52,6 +53,7 @@ def get_id_back(json_script, name=None):
         new_item = requests.post('https://my.farmbot.io/api/sequences', headers=headers, json=json_script)
         id = new_item["id"]
 
+# Tells FarmBot to delete something
 def delete_command(id, kind):
     if kind == "farm_event":
         requests.delete('https://my.farmbot.io/api/farm_events/' + str(id), headers=headers)

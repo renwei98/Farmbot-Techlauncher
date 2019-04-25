@@ -67,26 +67,32 @@ class ActionHandler():
                     print("Invalid format for object:", name)
 
 
-    def calc_time_offsets(self,days, times): #test version, 30 days per month, millisecond as unit
-        """days : a list of days on which the sequence should be executed
-           times : a list of days on which the sequence should be executed
-           returns : a list of integers that are time_offset(s) for CeleryScript"""
-        for x in days:
-           if x == datetime.datetime.now().day:
-               if cal_min(times) > 0:
-                  return cal_min(times)
-               elif x == days[-1]:
-                   idays = (30 - datetime.datetime.now().day + x) * 24 * 60 * 60 * 1000
-                   itimes = cal_min(times)
-                   return itimes + idays
-         elif x > datetime.datetime.now().day:
-              idays = (x - datetime.datetime.now().day) * 24 * 60 * 60 * 1000
-              itimes = cal_min(times)
-              return itimes + idays
-         elif x == days[-1]:
-              idays = (30 - datetime.datetime.now().day + x) * 24 * 60 * 60 * 1000
-              itimes = cal_min(times)
-              return itimes + idays
+    def calc_time_offsets(self, schedule): #test version, 30 days per month, millisecond as unit
+    """regimen : A yaml object that includes this:
+         schedule: [{group: [optional], type: [optional], days: [], times: [], actions: <<list of actions or name of sequence>>}
+         OR
+         schedule: [{group: [optional], type: [optional], every: 4, unit: "minutes/hours/days/weeks/months/years", actions: <<list of actions or name of sequence>>}
+       returns : a list of integers that are time_offset(s) for CeleryScript"""
+        if "days" in schedule:
+            days = schedule["days"]
+            times = schedule["times"]
+            for x in days:
+               if x == datetime.datetime.now().day:
+                   if cal_min(times) > 0:
+                      return cal_min(times)
+                   elif x == days[-1]:
+                       idays = (30 - datetime.datetime.now().day + x) * 24 * 60 * 60 * 1000
+                       itimes = cal_min(times)
+                       return itimes + idays
+             elif x > datetime.datetime.now().day:
+                  idays = (x - datetime.datetime.now().day) * 24 * 60 * 60 * 1000
+                  itimes = cal_min(times)
+                  return itimes + idays
+             elif x == days[-1]:
+                  idays = (30 - datetime.datetime.now().day + x) * 24 * 60 * 60 * 1000
+                  itimes = cal_min(times)
+                  return itimes + idays
+        elif "every" in schedule:
 
    def cal_min(self,ttime):
       if int(ttime[0:2]) > datetime.datetime.now().hour:
