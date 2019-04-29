@@ -13,16 +13,15 @@ class Event(Enum):
 load_dotenv()  # Add API_KEY to .env if not done already
 headers = {'Authorization': 'Bearer ' + os.getenv("API_KEY"), 'content-type': 'application/json'}
 
-
 # Get all sequences currently on Farmbot
 def get_sequences():  # TODO be able to get regimens and farm events too
     sequences = requests.get('https://my.farmbot.io/api/sequences', headers=headers)
     return sequences.json()
 
 
+# Sends CeleryScript objects to FarmBot and returns the ID.
 def new_sequence(json_script, event_name: str, event_type: Event):  # TODO rename if sequence, regimen, event uses this
     id = -1
-
     if event_type == Event.FARM_EVENT:
         new_item = requests.post('https://my.farmbot.io/api/farm_events', headers=headers, json=json_script)
         id = new_item.json()["id"]
@@ -36,6 +35,7 @@ def new_sequence(json_script, event_name: str, event_type: Event):  # TODO renam
     return id
 
 
+# Tells FarmBot to delete something
 def delete_command(id, kind):
     if kind == "farm_event":
         requests.delete('https://my.farmbot.io/api/farm_events/' + str(id), headers=headers)

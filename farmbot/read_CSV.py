@@ -1,6 +1,6 @@
 """ Rachel: I think the most important part is that this class should, like
  read_sequence and read_regimen
-  - Be able to return CeleryScript that can be sent to FarmBot
+  - Be able to return CeleryScript that can be sent to FarmBot (see in csv_to celeryscript)
   - Provide a function that writes what FarmBot returns back to the CSV
      * (e.g. in read_commands, update_sequence(self, seq_name, returned_id)
              writes the returned ID back to the YAML file) """
