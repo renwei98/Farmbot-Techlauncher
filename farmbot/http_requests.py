@@ -32,6 +32,7 @@ def new_sequence(json_script, event_name: str, event_type: Event):  # TODO renam
         id = new_item.json()["id"]
     elif event_type == Event.SEQUENCE:
         new_item = requests.post('https://my.farmbot.io/api/sequences', headers=headers, json=json_script)
+        print(new_item)
         id = new_item.json()["id"]
     return id
 
