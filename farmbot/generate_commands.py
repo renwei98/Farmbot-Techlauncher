@@ -30,7 +30,8 @@ def sequence_to_celery(yaml_sequence):  # TODO maybe move to new file, this shou
                     },
                     "speed": 4
                 }
-            }]
+            }
+        ]
     }
     return example_sequence
 
@@ -44,8 +45,8 @@ if item_name in file_contents:  # TODO cleanup section to be less messy
         regimen_id = http.new_sequence(file_contents[item_name], item_name, Event.REGIMEN)
 
     elif file_contents[item_name]['event_type'] == 'sequence':
-        sequence = sequence_to_celery(file_contents[item_name])
-        sequence_id = http.new_sequence(file_contents[item_name], item_name, Event.SEQUENCE)
+        celery = sequence_to_celery(file_contents[item_name])
+        sequence_id = http.new_sequence(celery, item_name, Event.SEQUENCE)
         print("Sequence ID: ", sequence_id)
 
     elif file_contents[item_name]['event_type'] == 'farm_event':
