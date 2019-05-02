@@ -39,8 +39,20 @@ def check_subs(client):
          client.loop(.01)  #check for messages manually
    return False
 
+def on_connect(client, userdata, flags, rc):
+    if rc==0:
+        client.connected_flag=True #set flag
+        print("connected")
+    else:
+        print("connection failed, rc = ",rc)
+
+def on_disconnect(client, userdata, rc):
+   print("client disconnected ok")
+
 
 device_id = api_token_gen.token_data['token']['unencoded']['bot']
+token = api_token_gen.token_data['token']['encoded']
+broker= api_token_gen.token_data['token']['unencoded']['mqtt']
 
 # testing locally
 mqtt.Client.connected_flag=False#create flag in class
@@ -48,9 +60,15 @@ mqtt.Client.topic_ack=[]#create topic acknowledgement list in class
 mqtt.Client.running_loop=False#create topic acknowledgement list in class
 client = mqtt.Client()
 
+client.on_connect = on_connect
+client.on_disconnect = on_disconnect #assign function to callback
+
 topic0="" 
 topic1 =("bot/" + device_id + "/logs")
 client= mqtt.Client("Python1",False)       #create client object
+
+client.username_pw_set(device_id, token)
+client.connect(broker, port=1883, keepalive=60)
 
 client.loop_start()
 print("Subscribing to topics ",topic0)
