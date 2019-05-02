@@ -40,7 +40,7 @@ def check_subs(client):
    return False
 
 
-
+device_id = api_token_gen.token_data['token']['unencoded']['bot']
 
 # testing locally
 mqtt.Client.connected_flag=False#create flag in class
