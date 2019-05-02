@@ -1,6 +1,6 @@
 import paho.mqtt.client as mqtt
 import logging
-
+import api_token_gen
 
 
 def subscribe_topics(client,topics,qos=0):
@@ -49,7 +49,7 @@ mqtt.Client.running_loop=False#create topic acknowledgement list in class
 client = mqtt.Client()
 
 topic0="" 
-topic1 ="ahahaa test1"
+topic1 =("bot/" + device_id + "/logs")
 client= mqtt.Client("Python1",False)       #create client object
 
 client.loop_start()
