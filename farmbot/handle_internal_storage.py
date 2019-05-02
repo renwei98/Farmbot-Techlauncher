@@ -5,6 +5,8 @@ import os
 headers = {'Authorization': 'Bearer ' + os.getenv("API_KEY"), 'content-type': 'application/json'}
 logs = requests.get('https://my.farmbot.io/api/logs', headers=headers)
 
+PATH = ".internal_storage/farmbot_commands.txt"
+
 #Open a file named file.json or create one if it doesn't exist.
 file_handle=open('file.json',mode='w')
 file_handle.write(logs.json())
@@ -24,9 +26,9 @@ seq_ids=[]
 reg_ids=[]
 
 # if there is already an object with the same *NAME* in internal storage
-#   return (True, id) so read_commands know not to re-send it but use the existing id instead
+#   return (True, id, hash) so read_commands know not to re-send it but use the existing id instead
 # else
-#   return (False, -1)
+#   return (False, -1, hash)
 
 # There should be a function that checks only (auto == True) objects
 # and if no object depends on them, it deletes them both from FarmBot and internal storage.
@@ -43,7 +45,7 @@ reg_ids=[]
 # we need to re-send it.
 
 # If the YAML object uses another user-defined YAML object, it will also have the field
-# "child":[]
+# "children":[]
 # This makes it easier to update all parent objects if a child object is changed by the user.
 
 # Note: If the user wants to change a sequence, regimen, or farm event that has already
@@ -51,7 +53,42 @@ reg_ids=[]
 # that have it as a child, and update all "auto"==True objects that have it as its parent.
 
 
+def check_for_id(name):
+    file = yaml.load(open(PATH,mode='r'))
+    for key in file:
+        if obj == name:
+            return (True, file[key]["id"])
+    return (False, -1)
 
+def delete_object(name):
+    file = yaml.load(open(PATH,mode='r'))
+    del file[name]
+    yaml.dump(file, open(PATH, 'w'))
+    return
+
+def delete_outdated(name):
+    file = yaml.load(open(PATH,mode='r'))
+    children = set()
+    for key in file:
+        if file[key]["auto"]=="true":
+            if file[key]["parent"]==name:
+                if "children" in file[key]:
+                    children = children.union(set(file[key]["children"]))
+                del file[obj]
+                yaml.dump(file, open(PATH, 'w'))
+    for child in children:
+        delete_outdated(child)
+    return
+
+def add_data(data):
+    yaml.dump(data, open(PATH, 'a'))
+
+def replace_data(data):
+    name = data["name"]
+    file = yaml.load(open(PATH,mode='r'))
+    file[name] = data
+    yaml.dump(file, open(PATH, 'w'))
+    return
 
 def check_seq_id(num):
     for k, v in data["YAML Sequence"].items():
