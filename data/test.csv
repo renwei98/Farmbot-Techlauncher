@@ -1,6 +1,6 @@
 name,type,group,x,y,z
 ,,,1,1,
 plant2, extra_water_group, radish,2,2,1
-plant3, extra_water_group, ,2,3,1
-plant4, , ,2,4,1
-plant5, , radish,2,5,1
+plant3, extra_water_group,,2,3,1
+plant4,,,2,4,1
+plant5,, radish,2,5,1
