@@ -13,5 +13,5 @@ def csv_to_celeryscript(path):
         script = script + "\n  \"z\" : \"" + (str(content["z"][n])) + "\",\n"
         n+=1
     script = script + "}"
-    print(script)
-    return
+    
+    return script
