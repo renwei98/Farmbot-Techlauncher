@@ -37,58 +37,53 @@ reg_ids=[]
 # Internal storage format is:
 # {"name":name, "auto":True/False, "kind":"regimen", "id":reg_id, "hash":6941904779894686356}
 
-# And if auto==True, it will also have "parent":parent_name
-# This field makes it easier to delete automatically generated objects when its
-# user-generated parent object is deleted.
-
 # "hash" is what we check against to see if the user has edited a YAML object and
 # we need to re-send it.
 
-# If the YAML object uses another user-defined YAML object, it will also have the field
 # "children":[]
 # This makes it easier to update all parent objects if a child object is changed by the user.
+# Automatically generated children *are* included here
 
 # Note: If the user wants to change a sequence, regimen, or farm event that has already
 # been sent, we will have to delete the old one from FarmBot and update all objects
 # that have it as a child, and update all "auto"==True objects that have it as its parent.
 
 
-def check_for_id(name):
+def check_exist(name):
     file = yaml.load(open(PATH,mode='r'))
     for key in file:
         if obj == name:
             return (True, file[key]["id"])
-    return (False, -1)
+    return (False, -1, file[name]["hash"])
 
 def delete_object(name):
     file = yaml.load(open(PATH,mode='r'))
+    children = set()
+    if "children" in file[name]:
+        children = set(file[name]["children"])
     del file[name]
     yaml.dump(file, open(PATH, 'w'))
-    return
-
-def delete_outdated(name):
-    file = yaml.load(open(PATH,mode='r'))
-    children = set()
-    for key in file:
-        if file[key]["auto"]=="true":
-            if file[key]["parent"]==name:
-                if "children" in file[key]:
-                    children = children.union(set(file[key]["children"]))
-                del file[obj]
-                yaml.dump(file, open(PATH, 'w'))
     for child in children:
         delete_outdated(child)
     return
 
+def delete_outdated(name):
+    file = yaml.load(open(PATH,mode='r'))
+    if file[name]["auto"]:
+        children = set()
+        if "children" in file[name]:
+            children = set(file[name]["children"])
+        del file[name]
+        yaml.dump(file, open(PATH, 'w'))
+        for child in children:
+            delete_outdated(child)
+    return
+
 def add_data(data):
     yaml.dump(data, open(PATH, 'a'))
-
-def replace_data(data):
-    name = data["name"]
-    file = yaml.load(open(PATH,mode='r'))
-    file[name] = data
-    yaml.dump(file, open(PATH, 'w'))
     return
+
+
 
 def check_seq_id(num):
     for k, v in data["YAML Sequence"].items():
