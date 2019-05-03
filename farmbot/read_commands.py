@@ -7,6 +7,7 @@ import csv
 import json
 import http_requests as http
 import datetime
+import handle_internal_storage as stor
 
 
 device_id = api_token_gen.token_data['token']['unencoded']['bot']
@@ -38,10 +39,12 @@ class ActionHandler():
             file = yaml.load(open(file_name))
             if name in file:
                 if "schedule" in file[name]:
-                    return (make_regimen(file[name], name), "regimen")
+                    id, name = make_regimen(file[name], name)
+                    return (id, "regimen", name)
                 elif "actions" in file[name]:
                     if file[name["actions"]] is not str:
-                        return (make_sequence(file[name], name), "sequence")
+                        id, name = make_sequence(file[name], name)
+                        return (id, "sequence", name)
                     else:
                         return obj_from_name(file[name["actions"]])
                 else:
@@ -197,8 +200,32 @@ class ActionHandler():
             raise Error("The action " + action.keys()[0] + " is undefined.")
         return script
 
+    def check_change(yaml_obj, name):
+        """Checks if an object or any object it depends on has changed.
+           IF an object has been changed, it automatically deletes that object from storage.
+           yaml_obj: the new obejct definition
+           name: the name of the object
+           hash: the new hash of the object"""
+        existance, id, stored_hash = stor.check_exist(name)
+        if existance:
+            if stored_hash == hash(json.dumps(yaml_obj)):
+                # If the actions include user-defined objects, check if they changed.
+                for child in yaml_obj["actions"]:
+                    if type(child) is str:
+                        for name in self.source_files:
+                            file = yaml.load(open(name, mode='r'))
+                            if child in file:
+                                if check_change(file[name], child):
+                                    stor.delete_object(name)
+                                    return (True, id)
+                return (False, id)
+            else: # Already exists in storage and has changed
+                stor.delete_object(name)
+                return (True, id)
+        else:
+            return (False, id)
 
-    def make_sequence(self, yaml_obj):
+    def make_sequence(self, yaml_obj, name = None):
         """sequence : Includes or is a list of actions.
            returns : The ID of the sequence sent, returned from FarmBot
 
@@ -206,6 +233,11 @@ class ActionHandler():
            program-set name, then turns it into a CeleryScript command, sends
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
+        if type(name) is not None:
+            changed, id = check_change(yaml_obj, name)
+            if not changed:
+                return (id, name)
+
         script = "{"
         name = ""
         auto = 1 # not-zero is true
@@ -216,6 +248,7 @@ class ActionHandler():
         else:
             name = unique_name()
         script = script + "\n  \"name\": " + name + ","
+        data = {"name" : name, "auto": auto, "kind" : "regimen", "hash":hash(json.dumps(yaml_obj)), "children":[]}
 
         script =  = script + "\n  \"body\": [ \n    {"
         actions = yaml_obj["actions"]
@@ -265,9 +298,11 @@ class ActionHandler():
                 file = yaml.load(open(file_name))
                 if n in file:
                     send_this["actions"] = file[n]["actions"]
-            seq_id = make_sequence(send_this)
-        yaml.dump({"name":name, "auto":auto, "kind":"sequence", "id":seq_id}, open(PATH,'a'))
-        return seq_id
+            seq_id, n = make_sequence(send_this)
+            data["children"].append(n)
+        data["id"] = seq_id
+        stor.add_data(data)
+        return (seq_id, name)
 
     def make_regimen(self, yaml_obj, name = None):
         """regimen : A yaml object that includes this:
@@ -280,6 +315,11 @@ class ActionHandler():
            program-set name, then turns it into a CeleryScript command, sends
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
+        if type(name) is not None:
+            changed, id = check_change(yaml_obj, name)
+            if not changed:
+                return (id, name)
+
         script = "{"
         script = script + "\n  \"color\": " + default_value(regimen, "color") + ","
         name = ""
@@ -290,6 +330,7 @@ class ActionHandler():
         else:
             name = unique_name()
         script = script + "\n  \"name\": " + name + ","
+        data = {"name" : name, "auto": auto, "kind" : "regimen", "hash":hash(json.dumps(yaml_obj)), "children":[]}
 
         list_of_sequences = [] # [(seq_id : , time_offsets : [])]
 
@@ -315,7 +356,8 @@ class ActionHandler():
                     if n in file:
                         send_this["actions"] = file[n]["actions"]
                         send_this["name"] = n
-            id = make_sequence(send_this)
+            id, n = make_sequence(send_this)
+            data["children"].append(n)
             list_of_sequences.append({"id":sequence_id,"time_offsets": calc_time_offsets(sequence)})
             # Format all the sequences and their times for the regimen
             script = script + "\n  \"regimen_items\": [ "
@@ -328,12 +370,13 @@ class ActionHandler():
                     script = script + "\n    },"
             script = script[0:-1] # Truncate off the last comma
             script = script + "\n  ], \n  \"uuid\": "+name+"\n}"
-            reg_id = get_id_back(json.load(script), name)
-            yaml.dump({"name":name, "auto":auto, "kind":"regimen", "id":reg_id}, open(PATH,'a'))
-            return reg_id
+            reg_id = http.get_id_back(json.load(script), name)
+            data["id"] = reg_id
+            stor.add_data(data)
+            return (reg_id, name)
 
 
-    def make_farm_event(self, yaml_obj, name = None):
+    def make_farm_event(self, yaml_obj, name):
         """yaml_obj : An YAML object we already know is an event.
            returns : The ID of the event sent, returned from FarmBot
 
@@ -342,6 +385,12 @@ class ActionHandler():
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
 
+        if type(name) is not None:
+            changed, id = check_change(yaml_obj, name)
+            if not changed:
+                return (id, name)
+
+           data = {"name" : name, "auto": 0, "kind" : "farm_event", "hash":hash(json.dumps(yaml_obj)), "children":[]}
            script  = script + "\n  \"start_time\" : \"" + yaml_obj["start_time"] + "\","
            if "repeat_event" in yaml_obj:
            # The following is a field in Farm Events:
@@ -352,20 +401,24 @@ class ActionHandler():
            else:
                script = script + "\n  \"time_unit\" : " + "\"never\","
                script = script + "\n  \"repeat\" : " + "\"1\","
-           id
+           id = -1
+           n = ""
            if "schedule" in yaml_obj:
-               id = self.make_regimen({"schedule" : yaml_obj["schedule"]})
+               id, n = self.make_regimen({"schedule" : yaml_obj["schedule"]})
                script = script + "\n  \"executable_type\" : " + "\"regimen\","
            elif "actions" in yaml_obj:
                if type(yaml_obj["actions"]) is not str:
-                   id = self.make_sequence({"actions" : yaml_obj["actions"]})
+                   id, n = self.make_sequence({"actions" : yaml_obj["actions"]})
                    script = script + "\n  \"executable_type\" : " + "\"sequence\","
                else:
-                   id, type = obj_from_name(yaml_obj["actions"])
+                   id, type, n = obj_from_name(yaml_obj["actions"])
                    script = script + "\n  \"executable_type\" : " + "\"" + type + "\","
            script = script + "\n  \"executable_id\" : " + str(id) +  "\n  \"uuid\": "+name+"\n}"
+           data["children"].append(n)
            event_id = http.get_id_back(json.load(script),name)
+           data["id"] = event_id
            # When converting an int to a bool, the boolean value is True for all integers except 0.
            # auto = false
-           yaml.dump({"name" : name, auto: 0, "kind" : "farm_event","id" : event_id}, open(PATH, 'a'))
+
+           stor.add_data(data)
            return
