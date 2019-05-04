@@ -122,6 +122,34 @@ class ActionHandler():
                   itimes = cal_min(times)
                   return itimes + idays
         elif "every" in schedule:
+            every = schedule["every"]
+            unit = schedule["unit"]
+            last_modified = schedule["last_modified"]
+            if datetime.datetime.now() > last_modified:
+                if unit == "minutes":
+                    period = every*60*1000
+                    next_time = unix_time_millis(last_modified) + period
+                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
+                elif unit == "hours":
+                    period = every*60*60*1000
+                    next_time = unix_time_millis(last_modified) + period
+                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
+                elif unit == "days":
+                    period = every*24*60*60*1000
+                    next_time = unix_time_millis(last_modified) + period
+                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
+                elif unit == "weeks":
+                    period = every*7*24*60*60*1000
+                    next_time = unix_time_millis(last_modified) + period
+                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
+                elif unit == "months":
+                    period = every*30*24*60*60*1000
+                    next_time = unix_time_millis(last_modified) + period
+                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
+                elif unit == "years":
+                    period = every*365*24*60*60*1000
+            
+                return next_time
 
    def cal_min(self,ttime):
       if int(ttime[0:2]) > datetime.datetime.now().hour:
@@ -134,6 +162,11 @@ class ActionHandler():
          itime = (((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001)
          return int(itime)
 
+    epoch = datetime.datetime.utcfromtimestamp(0)
+    def unix_time_millis(dt):
+        """convert datetime to miliseconds"""
+        return (dt - epoch).total_seconds() * 1000.0
+      
     def default(self,yaml_obj, field):
         if field == "every":
             if "every" in yaml_obj:
