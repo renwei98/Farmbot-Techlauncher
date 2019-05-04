@@ -20,6 +20,11 @@ def get_sequences():  # TODO be able to get regimens and farm events too
     return sequences.json()
 
 
+def get_events():
+    events = requests.get('https://my.farmbot.io/api/farm_events', headers=headers)
+    return events.json()
+
+
 # Sends CeleryScript objects to FarmBot and returns the ID.
 def new_sequence(json_script, event_name: str, event_type: Event):  # TODO rename if sequence, regimen, event uses this
     id = -1
