@@ -1,5 +1,5 @@
 import argparse
-import read_commands.py
+import read_commands
 
 parser = argparse.ArguementParser()
 parser.add_arguement("yaml_files", type=str,

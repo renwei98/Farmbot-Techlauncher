@@ -29,8 +29,8 @@ class ActionHandler():
                         # when we start storing internal data
         self.pins = {}
         self.settings = (1, 50, 0, 0, 0, 0) #scale, speed, z, x_offset, y_offset, z_offset
-        self.get_defaults(yaml_file_names, default_settings)
-        self.load_actions()
+        #self.get_defaults(yaml_file_names, default_settings)
+        #self.load_actions()
 
     def get_defaults(self, yaml_file_names, default_settings):
         if type(default_settings) is not None:
@@ -54,7 +54,7 @@ class ActionHandler():
             for key in file:
                 if type(file[key]) is str: # aka it is a setting for a PIN
                     self.source_files[f][key] = file[key]
-                if type(file[key]) is list: # aka it refers to other files
+                # if type(file[key]) is list: # aka it refers to other files
     def obj_from_name(self, name):
         """name : the name of a YAML object
            returns : the ID of the sent object, and its type
@@ -87,7 +87,7 @@ class ActionHandler():
             self.source_files[source] = yaml_file
             for name in file:
                 if "start_time" in yaml_obj:
-                    self.make_farm_event(file[name], name):
+                    self.make_farm_event(file[name], name)
                 elif "schedule" in yaml_obj:
                     self.make_regimen(file[name], name)
                 elif "actions" in yaml_obj:
@@ -98,9 +98,9 @@ class ActionHandler():
 
     def calc_time_offsets(self, schedule): #test version, 30 days per month, millisecond as unit
     """regimen : A yaml object that includes this:
-         schedule: [{group: [optional], type: [optional], days: [], times: [], actions: <<list of actions or name of sequence>>}
-         OR
-         schedule: [{group: [optional], type: [optional], every: 4, unit: "minutes/hours/days/weeks/months/years", actions: <<list of actions or name of sequence>>}
+       schedule: [{group: [optional], type: [optional], days: [], times: [], actions: <<list of actions or name of sequence>>}
+       OR
+       schedule: [{group: [optional], type: [optional], every: 4, unit: "minutes/hours/days/weeks/months/years", actions: <<list of actions or name of sequence>>}
        returns : a list of integers that are time_offset(s) for CeleryScript"""
         if "days" in schedule:
             days = schedule["days"]
@@ -148,25 +148,25 @@ class ActionHandler():
                     schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
                 elif unit == "years":
                     period = every*365*24*60*60*1000
-            
+
                 return next_time
 
-   def cal_min(self,ttime):
-      if int(ttime[0:2]) > datetime.datetime.now().hour:
-         itime = ((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001
-         return int(itime)
-      elif int(ttime[0:2]) == datetime.datetime.now().hour and int(ttime[3:5]) > datetime.datetime.now().minute:
-         itime = ((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001
-         return int(itime)
-      else:
-         itime = (((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001)
-         return int(itime)
+    def cal_min(self,ttime):
+        if int(ttime[0:2]) > datetime.datetime.now().hour:
+            itime = ((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001
+            return int(itime)
+        elif int(ttime[0:2]) == datetime.datetime.now().hour and int(ttime[3:5]) > datetime.datetime.now().minute:
+            itime = ((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001
+            return int(itime)
+        else:
+            itime = (((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001)
+            return int(itime)
 
-    epoch = datetime.datetime.utcfromtimestamp(0)
+    # epoch = datetime.datetime.utcfromtimestamp(0)
     def unix_time_millis(dt):
         """convert datetime to miliseconds"""
         return (dt - epoch).total_seconds() * 1000.0
-      
+
     def default(self,yaml_obj, field):
         if field == "every":
             if "every" in yaml_obj:
