@@ -16,10 +16,11 @@ token = api_token_gen.token_data['token']['encoded']
 
 class ActionHandler():
     PATH = ".internal_storage/farmbot_commands.txt"
-    def __init__(self, yaml_file_name, csv_file_name):
-        """yaml_file_name : a YAML file
-           csv_file_names : a list of CSV files holding map coordinates"""
-        self.source_files = set(yaml_file_name)
+    def __init__(self, yaml_file_names, default_settings=None, csv_file_name=None):
+        """yaml_file_names  : YAML files
+           default_settings : a single file containing
+           csv_file_names   : a list of CSV files holding map coordinates"""
+        self.source_files = {} # {file : {pin_alias : PIN}}
         self.seq_store = {} # {sequence name : internal YAML object}
         self.reg_store = {} # {regimen name : internal YAML object}
         self.evt_store = {} # {executable_id : internal YAML object}
@@ -27,9 +28,34 @@ class ActionHandler():
         self.names = 0  # to assign unique names, will need to be replaced later
                         # when we start storing internal data
         self.pins = {}
+        self.settings = (1, 50, 0, 0, 0, 0) #scale, speed, z, x_offset, y_offset, z_offset
+        self.get_defaults(yaml_file_names, default_settings)
         self.load_actions()
 
-    def obj_from_name(name):
+    def get_defaults(self, yaml_file_names, default_settings):
+        if type(default_settings) is not None:
+            settings = yaml.load(open(default_settings, 'r'))
+            if "scale" in settings:
+                self.settings = settings["scale"]
+            if "default_speed" in settings:
+                self.settings = settings["default_speed"]
+            if "default_z" in settings:
+                self.settings = settings["default_z"]
+            if "default_x_offset" in settings:
+                self.settings = settings["default_x_offset"]
+            if "default_y_offset" in settings:
+                self.settings = settings["default_y_offset"]
+            if "default_z_offset" in settings:
+                self.settings = settings["default_z_offset"]
+        sources = set(yaml_file_names)
+        for f in yaml_file_names:
+            file = yaml.load(open(f, 'r'))
+            self.source_files[f] = {}
+            for key in file:
+                if type(file[key]) is str: # aka it is a setting for a PIN
+                    self.source_files[f][key] = file[key]
+                if type(file[key]) is list: # aka it refers to other files
+    def obj_from_name(self, name):
         """name : the name of a YAML object
            returns : the ID of the sent object, and its type
 
