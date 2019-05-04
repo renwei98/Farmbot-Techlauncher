@@ -48,6 +48,15 @@ reg_ids=[]
 # been sent, we will have to delete the old one from FarmBot and update all objects
 # that have it as a child, and update all "auto"==True objects that have it as its parent.
 
+def unique_name():
+    file = yaml.load(open(PATH,mode='r'))
+    name = "auto_"
+    index = 1
+    while True:
+        if (name+index) not in file:
+            name = name+index
+            break
+    return name
 
 def check_exist(name):
     file = yaml.load(open(PATH,mode='r'))
