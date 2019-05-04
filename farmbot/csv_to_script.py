@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-content = pd.read_csv('test.csv')
+content = pd.read_csv('../data/test.csv')
 
 content['name'] = content['name'].fillna('plant')
 content['type'] = content['type'].fillna('extra_water_group')
@@ -21,4 +21,4 @@ while n <= len(content)-1:
     script = script + "\"z\" : \"" + (str(content["z"][n])) + "\","
     n+=1
 script = script + "}"
-    
+print(script)
