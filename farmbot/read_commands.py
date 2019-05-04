@@ -160,6 +160,7 @@ class ActionHandler():
     epoch = datetime.datetime.utcfromtimestamp(0)
     def unix_time_millis(dt):
         """convert datetime to miliseconds"""
+        """reference:https://stackoverflow.com/questions/6999726/how-can-i-convert-a-datetime-object-to-milliseconds-since-epoch-unix-time-in-p"""
         return (dt - epoch).total_seconds() * 1000.0
       
     def default(self,yaml_obj, field):
