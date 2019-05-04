@@ -125,31 +125,26 @@ class ActionHandler():
             every = schedule["every"]
             unit = schedule["unit"]
             last_modified = schedule["last_modified"]
-            if datetime.datetime.now() > last_modified:
-                if unit == "minutes":
-                    period = every*60*1000
-                    next_time = unix_time_millis(last_modified) + period
-                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
-                elif unit == "hours":
-                    period = every*60*60*1000
-                    next_time = unix_time_millis(last_modified) + period
-                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
-                elif unit == "days":
-                    period = every*24*60*60*1000
-                    next_time = unix_time_millis(last_modified) + period
-                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
-                elif unit == "weeks":
-                    period = every*7*24*60*60*1000
-                    next_time = unix_time_millis(last_modified) + period
-                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
-                elif unit == "months":
-                    period = every*30*24*60*60*1000
-                    next_time = unix_time_millis(last_modified) + period
-                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
-                elif unit == "years":
-                    period = every*365*24*60*60*1000
-            
-                return next_time
+            if not last_modified:
+                next_time = datetime.datetime.now()
+                schedule["last_modified"] = datetime.datetime.now()
+            else:    
+                if datetime.datetime.now() > last_modified:
+                    if unit == "minutes":
+                        period = every*60*1000
+                    elif unit == "hours":
+                        period = every*60*60*1000
+                    elif unit == "days":
+                        period = every*24*60*60*1000
+                    elif unit == "weeks":
+                        period = every*7*24*60*60*1000
+                    elif unit == "months":
+                        period = every*30*24*60*60*1000
+                    elif unit == "years":
+                        period = every*365*24*60*60*1000
+                next_time = unix_time_millis(last_modified) + period
+                schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
+            return next_time
 
    def cal_min(self,ttime):
       if int(ttime[0:2]) > datetime.datetime.now().hour:
