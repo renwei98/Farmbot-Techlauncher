@@ -1,0 +1,28 @@
+options:
+ other_files: []
+ pin_aliases: [water_pin : PIN_1]
+
+radish water 1:
+ start_time: "14/06/2019 23:00"
+ group: ["extra_water_group"]
+ repeat_event: {every: 1, unit = "hours", until: "14/12/2019 23:00"} 
+ schedule: [{group: ["extra_water_group"], type: ["radish"], days: [1,2,3], times: [23:00, 12:00], actions: "move farmbot 2"}]
+
+water 2:
+ start_time: "14/06/2019 22:00"
+ group: ["extra_water_group"]
+ type: ["radish"]
+ schedule: [every: 4, unit: "minutes", actions: [MOVE_REL: {x: 10, y: 10, z: 10, speed: 10}, "move farmbot 2"]}]
+
+radish 3:
+ start_time: "14/06/2019 21:00"
+ type: ["radish"]
+ actions: [MOVE_REL: {x: 10, y: 10, z: 10, speed: 10, x_off: 10, y_off: 9, z_off: 8}, MOVE_ABS: {x: 0, y: 0}]
+
+move farmbot 1:
+ schedule: [{group: ["extra_water_group"], type: ["radish"], every: 4, unit: "hours", actions: [MOVE_REL: {x: 10, y: 10, z: 10, speed: 10}, MOVE_ABS: {x: 0, y: 0}]}]
+
+move farmbot 2:
+ colour: "gray"
+ actions: [MOVE_REL: {x: 10, y: 10, z: 10, speed: 10, x_off: 10, y_off: 9, z_off: 8}, MOVE_ABS: {x: 0, y: 0}]
+

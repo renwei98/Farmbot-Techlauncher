@@ -12,3 +12,4 @@ parser.add_arguement("-d","--defaults", type=str, default=None,
 args = parser.parse_args()
 
 action_handler = ActionHandler(args.yaml_files.split(','), args.defaults, args.map)
+print(action_handler.format_time("21/12/2019 23:00"))

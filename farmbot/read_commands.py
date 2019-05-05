@@ -7,6 +7,7 @@ import csv
 import json
 import http_requests as http
 import datetime
+import time
 import handle_internal_storage as stor
 
 
@@ -20,17 +21,11 @@ class ActionHandler():
         """yaml_file_names  : YAML files
            default_settings : a single file containing
            csv_file_names   : a list of CSV files holding map coordinates"""
-        self.source_files = {} # {file : {pin_alias : PIN}}
-        self.seq_store = {} # {sequence name : internal YAML object}
-        self.reg_store = {} # {regimen name : internal YAML object}
-        self.evt_store = {} # {executable_id : internal YAML object}
+        self.source_files = {} # {file : {pin_aliases : {alias : PIN}}}
         self.map = csv_file_name
-        self.names = 0  # to assign unique names, will need to be replaced later
-                        # when we start storing internal data
-        self.pins = {}
         self.settings = (1, 50, 0, 0, 0, 0) #scale, speed, z, x_offset, y_offset, z_offset
-        #self.get_defaults(yaml_file_names, default_settings)
-        #self.load_actions()
+        # self.get_defaults(yaml_file_names, default_settings)
+        # self.load_actions()
 
     def get_defaults(self, yaml_file_names, default_settings):
         if type(default_settings) is not None:
@@ -48,13 +43,16 @@ class ActionHandler():
             if "default_z_offset" in settings:
                 self.settings = settings["default_z_offset"]
         sources = set(yaml_file_names)
-        for f in yaml_file_names:
+        for file_name in sources:
             file = yaml.load(open(f, 'r'))
             self.source_files[f] = {}
-            for key in file:
-                if type(file[key]) is str: # aka it is a setting for a PIN
-                    self.source_files[f][key] = file[key]
-                # if type(file[key]) is list: # aka it refers to other files
+            if "options" in file:
+                if "pin_aliases" in file["options"]:
+                    for alias in file["options"]["pin_aliases"]:
+                        self.source_files[file_name]["pin_aliases"][alias] = file[alias]
+            if "other_files" in file["options"]: # aka it refers to other files
+                    sources.union(set(file[key]))
+
     def obj_from_name(self, name):
         """name : the name of a YAML object
            returns : the ID of the sent object, and its type
@@ -65,16 +63,16 @@ class ActionHandler():
             file = yaml.load(open(file_name))
             if name in file:
                 if "schedule" in file[name]:
-                    id, name = make_regimen(file[name], name)
+                    id, name = make_regimen(file[name], file_name, name)
                     return (id, "regimen", name)
                 elif "actions" in file[name]:
                     if file[name["actions"]] is not str:
-                        id, name = make_sequence(file[name], name)
+                        id, name = make_sequence(file[name], file_name, name)
                         return (id, "sequence", name)
                     else:
                         return obj_from_name(file[name["actions"]])
                 else:
-                    print("Invalid format for object",name)
+                    print("Invalid format for object", name)
 
     def load_commands(self):
         """Modifies self.source_files, self.seq_script, and self.reg_script
@@ -87,45 +85,54 @@ class ActionHandler():
             self.source_files[source] = yaml_file
             for name in file:
                 if "start_time" in yaml_obj:
-                    self.make_farm_event(file[name], name)
+                    self.make_farm_event(file[name], name, source)
                 elif "schedule" in yaml_obj:
-                    self.make_regimen(file[name], name)
+                    self.make_regimen(file[name], name, source)
                 elif "actions" in yaml_obj:
-                    self.make_sequence(file[name], name)
+                    self.make_sequence(file[name], name, source)
                 else:
-                    print("Invalid format for object:", name)
+                    print("Invalid format for object:", name, source)
 
+    def cal_min(self,ttime):
+        if int(ttime[0:2]) > datetime.datetime.now().hour:
+            itime = ((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001
+            return int(itime)
+        elif int(ttime[0:2]) == datetime.datetime.now().hour and int(ttime[3:5]) > datetime.datetime.now().minute:
+            itime = ((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001
+            return int(itime)
+        else:
+            itime = (((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001)
+        return int(itime)
 
-    def calc_time_offsets(self, schedule): #test version, 30 days per month, millisecond as unit
-    """regimen : A yaml object that includes this:
-       schedule: [{group: [optional], type: [optional], days: [], times: [], actions: <<list of actions or name of sequence>>}
-       OR
-       schedule: [{group: [optional], type: [optional], every: 4, unit: "minutes/hours/days/weeks/months/years", actions: <<list of actions or name of sequence>>}
-       returns : a list of integers that are time_offset(s) for CeleryScript"""
+    def calc_time_offsets(self, schedule):
+        """regimen : A yaml object that includes this:
+           schedule: [{group: [optional], type: [optional], days: [], times: [], actions: <<list of actions or name of sequence>>}
+           OR
+           schedule: [{group: [optional], type: [optional], every: 4, unit: "minutes/hours/days/weeks/months/years", actions: <<list of actions or name of sequence>>}
+           returns : a list of integers that are time_offset(s) for CeleryScript"""
         if "days" in schedule:
             days = schedule["days"]
             times = schedule["times"]
             for x in days:
-               if x == datetime.datetime.now().day:
-                   if cal_min(times) > 0:
-                      return cal_min(times)
-                   elif x == days[-1]:
-                       idays = (30 - datetime.datetime.now().day + x) * 24 * 60 * 60 * 1000
-                       itimes = cal_min(times)
-                       return itimes + idays
-             elif x > datetime.datetime.now().day:
-                  idays = (x - datetime.datetime.now().day) * 24 * 60 * 60 * 1000
-                  itimes = cal_min(times)
-                  return itimes + idays
-             elif x == days[-1]:
-                  idays = (30 - datetime.datetime.now().day + x) * 24 * 60 * 60 * 1000
-                  itimes = cal_min(times)
-                  return itimes + idays
+                if x == datetime.datetime.now().day:
+                    if cal_min(times) > 0:
+                        return cal_min(times)
+                    elif x == days[-1]:
+                        idays = (30 - datetime.datetime.now().day + x) * 24 * 60 * 60 * 1000
+                        itimes = cal_min(times)
+                        return itimes + idays
+                elif x > datetime.datetime.now().day:
+                    idays = (x - datetime.datetime.now().day) * 24 * 60 * 60 * 1000
+                    itimes = cal_min(times)
+                    return itimes + idays
+                elif x == days[-1]:
+                    idays = (30 - datetime.datetime.now().day + x) * 24 * 60 * 60 * 1000
+                    itimes = cal_min(times)
+                    return itimes + idays
         elif "every" in schedule:
             every = schedule["every"]
             unit = schedule["unit"]
             last_modified = schedule["last_modified"]
-<<<<<<< HEAD
             if datetime.datetime.now() > last_modified:
                 if unit == "minutes":
                     period = every*60*1000
@@ -151,7 +158,6 @@ class ActionHandler():
                     period = every*365*24*60*60*1000
 
                 return next_time
-=======
             if not last_modified:
                 next_time = datetime.datetime.now()
                 schedule["last_modified"] = datetime.datetime.now()
@@ -172,18 +178,6 @@ class ActionHandler():
                 next_time = unix_time_millis(last_modified) + period
                 schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
             return next_time
->>>>>>> 004a0026c80a1e5014c062666980c14d62ac03e9
-
-    def cal_min(self,ttime):
-        if int(ttime[0:2]) > datetime.datetime.now().hour:
-            itime = ((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001
-            return int(itime)
-        elif int(ttime[0:2]) == datetime.datetime.now().hour and int(ttime[3:5]) > datetime.datetime.now().minute:
-            itime = ((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001
-            return int(itime)
-        else:
-            itime = (((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001)
-            return int(itime)
 
     # epoch = datetime.datetime.utcfromtimestamp(0)
     def unix_time_millis(dt):
@@ -191,8 +185,23 @@ class ActionHandler():
         """reference:https://stackoverflow.com/questions/6999726/how-can-i-convert-a-datetime-object-to-milliseconds-since-epoch-unix-time-in-p"""
         return (dt - epoch).total_seconds() * 1000.0
 
+    def format_time(time):
+        """time: DD/MM/YYYY 23:00
+           returns: YYYY-MM-DDT23:00:00.000Z aka ISO 8601 date representation, local time."""
+        string = time[6:10]+"-"+time[3:5]+"-"+time[0:2]+"T"+time[11:]+":00"
+        timezone = int(time.timezone / 3600.0)
+        if (timezone < 0):
+            return string + str(timezone) + ":00"
+        else:
+            return string + "+" + str(timezone) + ":00"
+
     def default(self,yaml_obj, field):
-        if field == "every":
+        if field == "color":
+            if "color" in yaml_obj:
+                return yaml_obj["color"]
+            else:
+                return "gray"
+        elif field == "every":
             if "every" in yaml_obj:
                 return yaml_obj["every"]
             else:
@@ -201,23 +210,39 @@ class ActionHandler():
             if "speed" in yaml_obj:
                 return yaml_obj["speed"]
             else:
-                return str(50)
-        elif field == "color":
-            if "color" in yaml_obj:
-                return yaml_obj["color"]
+                return str(self.settings[1])
+        elif field == "z":
+            if "z" in yaml_obj:
+                return yaml_obj["z"]
             else:
-                return "gray"
+                return str(self.settings[2])
+        elif field == "x_off":
+            if "x_offset" in yaml_obj:
+                return yaml_obj["x_offset"]
+            else:
+                return str(self.settings[3])
+        elif field == "x_off":
+            if "x_offset" in yaml_obj:
+                return yaml_obj["x_offset"]
+            else:
+                return str(self.settings[4])
+        elif field == "x_off":
+            if "x_offset" in yaml_obj:
+                return yaml_obj["x_offset"]
+            else:
+                return str(self.settings[5])
+
 
     def translate(self,yaml_obj, field):
         if field == "time_unit":
-            if yaml_obj["unit"] = "days":
+            if yaml_obj["unit"] == "days":
                 return "daily"
             else:
                 return yaml_obj["unit"][0:-1] + "ly"
 
-    def pin_name(self, pin):
-        if pin in self.pins:
-            return self.pins[pin]
+    def pin_name(self, pin, source):
+        if pin in self.source_files[source]["pin_aliases"]:
+            return self.source_files[source]["pin_aliases"][pin]
         else:
             return pin
 
@@ -232,43 +257,44 @@ class ActionHandler():
                 script = script + default({},"z") + "} },"
             return script
 
-    def parse_action(self,action,row=None):
+    def parse_action(self,action, source_file, row=None):
         script = ""
         if "move_abs" in action:
+            args = action["move_abs"]
             script = script + "{\"kind\":\"move_absolute\","
-            script = script + "\"args\": {\"location\": " + parse_coord(self.default(action,"x"), self.default(action,"y"), self.default(action,"z"))
-            script = script + "\"args\": {\"offset\": " + parse_coord(self.default(action,"x_off"), self.default(action,"y_off"), self.default(action,"z_off"))
-            script = script + "\"speed\": " + self.default(action, "speed") + "},},"
+            script = script + "\"args\": {\"location\": " + parse_coord(args["x"], args["y"], self.default(args,"z"))
+            script = script + "\"args\": {\"offset\": " + parse_coord(self.default(args,"x_off"), self.default(args,"y_off"), self.default(args,"z_off"))
+            script = script + "\"speed\": " + self.default(args, "speed") + "},},"
         elif "move_rel" in action:
+            args = action["move_rel"]
             script = script + "{\"kind\":\"move_relative\","
-            script = script + "\"args\": {\"location\": " + parse_coord(self.default(action,"x"), self.default(action,"y"), self.default(action,"z"))
-            script = script + "\"speed\": " + self.default(action, "speed") + "},},"
+            script = script + "\"args\": {\"location\": " + parse_coord(args["x"], args["y"], self.default(args,"z"))
+            script = script + "\"speed\": " + self.default(args, "speed") + "},},"
         elif "find_home" in action:
             script = script + "{\"kind\":\"find_home\",{\"args\": { \"axis\": "
-            allowed_axis = action["find_home"]
-            if "x" in allowed_axis:
+            args = action["find_home"]
+            if "x" in args:
                 script = script + "\"x\","
-            if "y" in allowed_axis:
+            if "y" in args:
                 script = script + "\"y\","
-            if "z" in allowed_axis:
+            if "z" in args:
                 script = script + "\"z\","
             else:
                 script = script + "\"all\","
-            script = script + "\"speed\": " + self.default(action, "speed") + "},},"
-        elif "message"in action:
-            # code here
+            script = script + "\"speed\": " + self.default(args, "speed") + "},},"
         elif "wait" in action:
-            return "{\"kind\": \"wait\", \"args\": { \"milliseconds\": \""+ action["wait"] +"\" } },"
+            return "{\"kind\": \"wait\", \"args\": { \"milliseconds\": \""+ action["wait"] + "\" } },"
         elif "read_pin" in action:
             args = action["read_pin"]
             script = script + "{\"kind\": \"read_pin\", \"args\": { "
-            if "label" in action["read_pin"]:
+            if "label" in args["read_pin"]:
                 script = script + "\"label\": \""+ args["label"] +"\","
-            script = script + "\"pin_number\": \""+ self.pin_name(args["pin"]) +"\"," "\"pin_mode\": \""+ args["mode"] +"\","" + " } },"
+            script = script + "\"pin_number\": \""+ self.pin_name(args["pin"], source_file) +"\", \"pin_mode\": \""+ args["mode"] + "\" } },"
         elif "write_pin" in action:
+            args = action["write_pin"]
             script = script + "{\"kind\": \"write_pin\", \"args\": { "
             script = script + "\"pin_mode\": \""+ args["mode"] +"\","
-            script = script + "\"pin_number\": \""+ self.pin_name(args["pin"]) +"\"," "\"pin_value\": \""+ action["value"] +"\","" + " } },"
+            script = script + "\"pin_number\": \""+ self.pin_name(args["pin"], source_file) +"\"," "\"pin_value\": \""+ action["value"] ++ "\" } },"
             # Note, I'm not sure if the pin_value for Digital mode can be a string or if it must be an integer
         elif "to_self" in action:
             script = script + "{\"kind\":\"move_absolute\","
@@ -276,8 +302,17 @@ class ActionHandler():
             script = script + "\"args\": {\"offset\": " + parse_coord(self.default(action,"x_off"), self.default(action,"y_off"), self.default(action,"z_off"))
             script = script + "\"speed\": " + self.default(action, "speed") + "},},"
         elif "to_plant" in action:
+            with open(self.map, "r") as csv_file:
+                reader = csv.Dictreader(csv_file)
+                for row in reader:
+                    if row["name"].strip() == action["to_plant"]:
+                        script = script + "{\"kind\":\"move_absolute\","
+                        script = script + "\"args\": {\"location\": " + parse_coord(row=row)
+                        script = script + "\"args\": {\"offset\": " + parse_coord(self.default(action,"x_off"), self.default(action,"y_off"), self.default(action,"z_off"))
+                        script = script + "\"speed\": " + self.default(action, "speed") + "},},"
             # code here
         elif "if" in action:
+            pass
             # difficult code here
         else:
             raise Error("The action " + action.keys()[0] + " is undefined.")
@@ -308,7 +343,7 @@ class ActionHandler():
         else:
             return (False, id)
 
-    def make_sequence(self, yaml_obj, name = None):
+    def make_sequence(self, yaml_obj, source_file, name = None):
         """sequence : Includes or is a list of actions.
            returns : The ID of the sequence sent, returned from FarmBot
 
@@ -325,7 +360,7 @@ class ActionHandler():
         name = ""
         auto = 1 # not-zero is true
         seq_id = -1
-        if "name" in yaml_obj":
+        if "name" in yaml_obj:
             name = yaml_obj["name"]
             auto = 0 # zero is false
         else:
@@ -333,7 +368,7 @@ class ActionHandler():
         script = script + "\n  \"name\": " + name + ","
         data = {"name" : name, "auto": auto, "kind" : "regimen", "hash":hash(json.dumps(yaml_obj)), "children":[]}
 
-        script =  = script + "\n  \"body\": [ \n    {"
+        script = script + "\n  \"body\": [ \n    {"
         actions = yaml_obj["actions"]
         if actions is not str:
             with open(self.map, "r") as csv_file:
@@ -345,30 +380,30 @@ class ActionHandler():
                         if row["group"].strip() in groups or row["types"].strip() in types:
                             for action in actions:
                                 if "to_self" in action:
-                                    script = script + parse_action(action, row)
+                                    script = script + parse_action(action, source_file, row)
                                 else:
-                                    script = script + parse_action(action)
+                                    script = script + parse_action(action, source_file)
                 elif "group" in yaml_obj:
                     groups = yaml_obj["groups"]
                     for row in reader:
                         if row["group"].strip() in groups:
                             for action in actions:
                                 if "to_self" in action:
-                                    script = script + parse_action(action, row)
+                                    script = script + parse_action(action, source_file, row)
                                 else:
-                                    script = script + parse_action(action)
+                                    script = script + parse_action(action, source_file)
                 elif "type" in yaml_obj:
                     types = yaml_obj["types"]
                     for row in reader:
                         if row["types"].strip() in types:
                             for action in actions:
                                 if "to_self" in action:
-                                    script = script + parse_action(action, row)
+                                    script = script + parse_action(action, source_file, row)
                                 else:
-                                    script = script + parse_action(action)
+                                    script = script + parse_action(action, source_file)
                 else:
                     for action in actions:
-                        script = script + parse_action(action)
+                        script = script + parse_action(action, source_file)
             script = script[0:-1] # Truncate off the last comma
             script = "\n      \"uuid\": " + name + "\n    }\n  ]\n}"
             # script = json.dumps(json.loads(script), indent="  ", sort_keys=False))
@@ -381,13 +416,13 @@ class ActionHandler():
                 file = yaml.load(open(file_name))
                 if n in file:
                     send_this["actions"] = file[n]["actions"]
-            seq_id, n = make_sequence(send_this)
+            seq_id, n = make_sequence(send_this, source_file)
             data["children"].append(n)
         data["id"] = seq_id
         stor.add_data(data)
         return (seq_id, name)
 
-    def make_regimen(self, yaml_obj, name = None):
+    def make_regimen(self, yaml_obj, source_file, name = None):
         """regimen : A yaml object that includes this:
              schedule: [{group: [optional], type: [optional], days: [], times: [], actions: <<list of actions or name of sequence>>}
              OR
@@ -407,7 +442,7 @@ class ActionHandler():
         script = script + "\n  \"color\": " + default_value(regimen, "color") + ","
         name = ""
         auto = 1 # not-zero is true
-        if "name" in yaml_obj":
+        if "name" in yaml_obj:
             name = yaml_obj["name"]
             auto = 0 # zero is false
         else:
@@ -439,7 +474,7 @@ class ActionHandler():
                     if n in file:
                         send_this["actions"] = file[n]["actions"]
                         send_this["name"] = n
-            id, n = make_sequence(send_this)
+            id, n = make_sequence(send_this, source_file)
             data["children"].append(n)
             list_of_sequences.append({"id":sequence_id,"time_offsets": calc_time_offsets(sequence)})
             # Format all the sequences and their times for the regimen
@@ -459,7 +494,7 @@ class ActionHandler():
             return (reg_id, name)
 
 
-    def make_farm_event(self, yaml_obj, name):
+    def make_farm_event(self, yaml_obj, source_file, name):
         """yaml_obj : An YAML object we already know is an event.
            returns : The ID of the event sent, returned from FarmBot
 
@@ -473,35 +508,34 @@ class ActionHandler():
             if not changed:
                 return (id, name)
 
-           data = {"name" : name, "auto": 0, "kind" : "farm_event", "hash":hash(json.dumps(yaml_obj)), "children":[]}
-           script  = script + "\n  \"start_time\" : \"" + yaml_obj["start_time"] + "\","
-           if "repeat_event" in yaml_obj:
+            data = {"name" : name, "auto": 0, "kind" : "farm_event", "hash":hash(json.dumps(yaml_obj)), "children":[]}
+            script  = script + "\n  \"start_time\" : \"" + format_time(yaml_obj["start_time"]) + "\","
+            if "repeat_event" in yaml_obj:
            # The following is a field in Farm Events:
            # repeat_event: {every: default 1, unit = "minutes/hours/days/weeks/months/years", until: ???}
-               script = script + "\n  \"end_time\" : \"" + cal_min(yaml_obj["repeat_event"]["until"]) + "\","
-               script = script + "\n  \"repeat\" : " + default_value(yaml_obj["repeat_event"], "every") + "\","
-               script = script + "\n  \"time_unit\" : \"" + yaml_obj["repeat_event"]["unit"] + "\","
-           else:
+                script = script + "\n  \"end_time\" : \"" + format_time(yaml_obj["repeat_event"]["until"]) + "\","
+                script = script + "\n  \"repeat\" : " + default_value(yaml_obj["repeat_event"], "every") + "\","
+                script = script + "\n  \"time_unit\" : \"" + yaml_obj["repeat_event"]["unit"] + "\","
+            else:
                script = script + "\n  \"time_unit\" : " + "\"never\","
                script = script + "\n  \"repeat\" : " + "\"1\","
-           id = -1
-           n = ""
-           if "schedule" in yaml_obj:
-               id, n = self.make_regimen({"schedule" : yaml_obj["schedule"]})
-               script = script + "\n  \"executable_type\" : " + "\"regimen\","
-           elif "actions" in yaml_obj:
-               if type(yaml_obj["actions"]) is not str:
-                   id, n = self.make_sequence({"actions" : yaml_obj["actions"]})
-                   script = script + "\n  \"executable_type\" : " + "\"sequence\","
-               else:
-                   id, type, n = obj_from_name(yaml_obj["actions"])
-                   script = script + "\n  \"executable_type\" : " + "\"" + type + "\","
-           script = script + "\n  \"executable_id\" : " + str(id) +  "\n  \"uuid\": "+name+"\n}"
-           data["children"].append(n)
-           event_id = http.get_id_back(json.load(script),name)
-           data["id"] = event_id
-           # When converting an int to a bool, the boolean value is True for all integers except 0.
-           # auto = false
-
-           stor.add_data(data)
-           return
+            id = -1
+            n = ""
+            if "schedule" in yaml_obj:
+                id, n = self.make_regimen({"schedule" : yaml_obj["schedule"]}, source_file)
+                script = script + "\n  \"executable_type\" : " + "\"regimen\","
+            elif "actions" in yaml_obj:
+                if type(yaml_obj["actions"]) is not str:
+                    id, n = self.make_sequence({"actions" : yaml_obj["actions"]}, source_file)
+                    script = script + "\n  \"executable_type\" : " + "\"sequence\","
+                else:
+                    id, type, n = obj_from_name(yaml_obj["actions"])
+                    script = script + "\n  \"executable_type\" : " + "\"" + type + "\","
+            script = script + "\n  \"executable_id\" : " + str(id) +  "\n  \"uuid\": "+name+"\n}"
+            data["children"].append(n)
+            event_id = http.get_id_back(json.load(script),name)
+            data["id"] = event_id
+            # When converting an int to a bool, the boolean value is True for all integers except 0.
+            # auto = false
+            stor.add_data(data)
+            return
