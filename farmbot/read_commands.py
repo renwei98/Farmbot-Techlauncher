@@ -108,76 +108,38 @@ class ActionHandler():
         """regimen : A yaml object that includes this:
            schedule: [{group: [optional], type: [optional], days: [], times: [], actions: <<list of actions or name of sequence>>}
            OR
-           schedule: [{group: [optional], type: [optional], every: 4, unit: "minutes/hours/days/weeks/months/years", actions: <<list of actions or name of sequence>>}
+           schedule: [{group: [optional], type: [optional], every: 4, unit: "minutes/hours/days/weeks/months/years", max: 10, actions: <<list of actions or name of sequence>>}
            returns : a list of integers that are time_offset(s) for CeleryScript"""
+        time_offsets = []
         if "days" in schedule:
             days = schedule["days"]
-            times = schedule["times"]
-            for x in days:
-                if x == datetime.datetime.now().day:
-                    if cal_min(times) > 0:
-                        return cal_min(times)
-                    elif x == days[-1]:
-                        idays = (30 - datetime.datetime.now().day + x) * 24 * 60 * 60 * 1000
-                        itimes = cal_min(times)
-                        return itimes + idays
-                elif x > datetime.datetime.now().day:
-                    idays = (x - datetime.datetime.now().day) * 24 * 60 * 60 * 1000
-                    itimes = cal_min(times)
-                    return itimes + idays
-                elif x == days[-1]:
-                    idays = (30 - datetime.datetime.now().day + x) * 24 * 60 * 60 * 1000
-                    itimes = cal_min(times)
-                    return itimes + idays
+            times = []
+            for time in schedule["times"]:
+                times.add(int(time[0:2])*60*60*1000 + int(time[3:])*60*1000)
+            now = datetime.datetime.now()
+            for day in days:
+                begin = (day - 1) * 24*60*60*1000
+                for time in times:
+                    time_offsets.add(begin+time)
         elif "every" in schedule:
             every = schedule["every"]
             unit = schedule["unit"]
-            last_modified = schedule["last_modified"]
-            if datetime.datetime.now() > last_modified:
-                if unit == "minutes":
-                    period = every*60*1000
-                    next_time = unix_time_millis(last_modified) + period
-                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
-                elif unit == "hours":
-                    period = every*60*60*1000
-                    next_time = unix_time_millis(last_modified) + period
-                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
-                elif unit == "days":
-                    period = every*24*60*60*1000
-                    next_time = unix_time_millis(last_modified) + period
-                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
-                elif unit == "weeks":
-                    period = every*7*24*60*60*1000
-                    next_time = unix_time_millis(last_modified) + period
-                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
-                elif unit == "months":
-                    period = every*30*24*60*60*1000
-                    next_time = unix_time_millis(last_modified) + period
-                    schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
-                elif unit == "years":
-                    period = every*365*24*60*60*1000
-
-                return next_time
-            if not last_modified:
-                next_time = datetime.datetime.now()
-                schedule["last_modified"] = datetime.datetime.now()
-            else:
-                if datetime.datetime.now() > last_modified:
-                    if unit == "minutes":
-                        period = every*60*1000
-                    elif unit == "hours":
-                        period = every*60*60*1000
-                    elif unit == "days":
-                        period = every*24*60*60*1000
-                    elif unit == "weeks":
-                        period = every*7*24*60*60*1000
-                    elif unit == "months":
-                        period = every*30*24*60*60*1000
-                    elif unit == "years":
-                        period = every*365*24*60*60*1000
-                next_time = unix_time_millis(last_modified) + period
-                schedule["last_modified"] = datetime.utcfromtimestamp(next_time)
-            return next_time
+            period = 0
+            if unit == "minutes":
+                period = every*60*1000
+            elif unit == "hours":
+                period = every*60*60*1000
+            elif unit == "days":
+                period = every*24*60*60*1000
+            elif unit == "weeks":
+                period = every*7*24*60*60*1000
+            elif unit == "months":
+                period = every*30*24*60*60*1000
+            elif unit == "years":
+                period = every*365*24*60*60*1000
+            for i in range(0,max):
+                time_offsets.add(i*period)
+            return time_offsets
 
     # epoch = datetime.datetime.utcfromtimestamp(0)
     def unix_time_millis(dt):
