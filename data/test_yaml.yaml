@@ -1,40 +1,28 @@
 options:
- CSV: my_map.csv
- other_files: ["yaml_file1", "yaml_file2"]
- PIN_1 : water_pin
- scale : "1=10cm"
- default_speed : 50
- default_z : 0
- default_x_offset : 0
- default_y_offset : 0
- default_z_offset : 0
+ other_files: []
+ pin_aliases: [water_pin : PIN_1]
 
 radish water 1:
- event_type: event
- start_time: date_time
- repeat_event: {every: 1, unit = "hours", until: <<date_time>>} #optional
- schedule: [{group: ["extra_water_group"], type: ["radish"], days: [1,2,3], times: [23:00, 12:00], actions: my_sequence}]
+ start_time: "14/06/2019 23:00"
+ group: ["extra_water_group"]
+ repeat_event: {every: 1, unit = "hours", until: "14/12/2019 23:00"} 
+ schedule: [{group: ["extra_water_group"], type: ["radish"], days: [1,2,3], times: [23:00, 12:00], actions: "move farmbot 2"}]
 
-radish water 2:
- event_type: event
- start_time: date_time
+water 2:
+ start_time: "14/06/2019 22:00"
  group: ["extra_water_group"]
  type: ["radish"]
- schedule: [{group: [optional], type: [optional], every: 4, unit: "minutes", actions: []}]
+ schedule: [every: 4, unit: "minutes", actions: [MOVE_REL: {x: 10, y: 10, z: 10, speed: 10}, "move farmbot 2"]}]
 
-radish water 3:
- event_type: event
- start_time: date_time
- group: ["extra_water_group"]
+radish 3:
+ start_time: "14/06/2019 21:00"
  type: ["radish"]
- actions: [<<actions or name of sequence>>]
+ actions: [MOVE_REL: {x: 10, y: 10, z: 10, speed: 10, x_off: 10, y_off: 9, z_off: 8}, MOVE_ABS: {x: 0, y: 0}]
 
-water radishes:
- event_type: regimen
+move farmbot 1:
  schedule: [{group: ["extra_water_group"], type: ["radish"], every: 4, unit: "hours", actions: [MOVE_REL: {x: 10, y: 10, z: 10, speed: 10}, MOVE_ABS: {x: 0, y: 0}]}]
 
-move farmbot:
- event_type: sequence
+move farmbot 2:
  colour: "gray"
  actions: [MOVE_REL: {x: 10, y: 10, z: 10, speed: 10, x_off: 10, y_off: 9, z_off: 8}, MOVE_ABS: {x: 0, y: 0}]
 
