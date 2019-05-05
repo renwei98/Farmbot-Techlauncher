@@ -7,21 +7,23 @@ logs = requests.get('https://my.farmbot.io/api/logs', headers=headers)
 
 PATH = ".internal_storage/farmbot_commands.txt"
 
-#Open a file named file.json or create one if it doesn't exist.
-file_handle=open('file.json',mode='w')
-file_handle.write(logs.json())
+# Open a file named file.json or create one if it doesn't exist.
+with open('file.json', 'w') as output:
+    json.dump(logs.json()[0], output)
 
-#Read file.json and transfer it to YAML.
+# Read file.json and transfer it to YAML.
 file_read = open("file.json", 'r')
 if file_read.mode == 'r':
     contents = file_read.read()
-    contents = yaml.dump(json.load(contents))
+    print(contents, "after reading")
+    contents = yaml.dump(json.loads(contents))
+    print(contents)
 file_handle2 = open("file.yaml", 'w+')
 file_handle2.write(contents)
 file_handle2.close()
 
-stream = open('file.yml', 'r')
-data = yaml.load(stream)
+stream = open('file.yaml', 'r')
+data = yaml.safe_load(stream)
 seq_ids=[]
 reg_ids=[]
 
