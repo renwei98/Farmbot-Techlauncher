@@ -12,7 +12,7 @@ water 2:
  start_time: "14/06/2019 22:00"
  group: ["extra_water_group"]
  type: ["radish"]
- schedule: [every: 4, unit: "minutes", actions: [MOVE_REL: {x: 10, y: 10, z: 10, speed: 10}, "move farmbot 2"]}]
+ schedule: [every: 4, unit: "minutes", max: 10, actions: [MOVE_REL: {x: 10, y: 10, z: 10, speed: 10}, "move farmbot 2"]}]
 
 radish 3:
  start_time: "14/06/2019 21:00"
