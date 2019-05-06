@@ -7,13 +7,13 @@ import csv
 import json
 import http_requests as http
 import datetime
-import time
+from time import timezone
 import handle_internal_storage as stor
+# import
 
-
-device_id = api_token_gen.token_data['token']['unencoded']['bot']
-mqtt_host = api_token_gen.token_data['token']['unencoded']['mqtt']
-token = api_token_gen.token_data['token']['encoded']
+# device_id = api_token_gen.token_data['token']['unencoded']['bot']
+# mqtt_host = api_token_gen.token_data['token']['unencoded']['mqtt']
+# token = api_token_gen.token_data['token']['encoded']
 
 class ActionHandler():
     PATH = ".internal_storage/farmbot_commands.txt"
@@ -63,14 +63,14 @@ class ActionHandler():
             file = yaml.load(open(file_name))
             if name in file:
                 if "schedule" in file[name]:
-                    id, name = make_regimen(file[name], file_name, name)
+                    id, name = self.make_regimen(file[name], file_name, name)
                     return (id, "regimen", name)
                 elif "actions" in file[name]:
                     if file[name["actions"]] is not str:
-                        id, name = make_sequence(file[name], file_name, name)
+                        id, name = self.make_sequence(file[name], file_name, name)
                         return (id, "sequence", name)
                     else:
-                        return obj_from_name(file[name["actions"]])
+                        return self.obj_from_name(file[name["actions"]])
                 else:
                     print("Invalid format for object", name)
 
@@ -92,17 +92,6 @@ class ActionHandler():
                     self.make_sequence(file[name], name, source)
                 else:
                     print("Invalid format for object:", name, source)
-
-    def cal_min(self,ttime):
-        if int(ttime[0:2]) > datetime.datetime.now().hour:
-            itime = ((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001
-            return int(itime)
-        elif int(ttime[0:2]) == datetime.datetime.now().hour and int(ttime[3:5]) > datetime.datetime.now().minute:
-            itime = ((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001
-            return int(itime)
-        else:
-            itime = (((int(ttime[0:2]) - datetime.datetime.now().hour) * 60 *60 + (int(ttime[3:5]) - datetime.datetime.now().minute) * 60 - datetime.datetime.now().second) * 1000 - datetime.datetime.now().microsecond * 0.001)
-        return int(itime)
 
     def calc_time_offsets(self, schedule):
         """regimen : A yaml object that includes this:
@@ -141,23 +130,17 @@ class ActionHandler():
                 time_offsets.add(i*period)
             return time_offsets
 
-    # epoch = datetime.datetime.utcfromtimestamp(0)
-    def unix_time_millis(dt):
-        """convert datetime to miliseconds"""
-        """reference:https://stackoverflow.com/questions/6999726/how-can-i-convert-a-datetime-object-to-milliseconds-since-epoch-unix-time-in-p"""
-        return (dt - epoch).total_seconds() * 1000.0
-
-    def format_time(time):
+    def format_time(self, time):
         """time: DD/MM/YYYY 23:00
            returns: YYYY-MM-DDT23:00:00.000Z aka ISO 8601 date representation, local time."""
         string = time[6:10]+"-"+time[3:5]+"-"+time[0:2]+"T"+time[11:]+":00"
-        timezone = int(time.timezone / 3600.0)
-        if (timezone < 0):
-            return string + str(timezone) + ":00"
+        tz = int(timezone / 3600.0)
+        if (tz < 0):
+            return string + str(tz) + ":00"
         else:
-            return string + "+" + str(timezone) + ":00"
+            return string + "+" + str(tz) + ":00"
 
-    def default(self,yaml_obj, field):
+    def default(self, yaml_obj, field):
         if field == "color":
             if "color" in yaml_obj:
                 return yaml_obj["color"]
@@ -194,8 +177,7 @@ class ActionHandler():
             else:
                 return str(self.settings[5])
 
-
-    def translate(self,yaml_obj, field):
+    def translate(self, yaml_obj, field):
         if field == "time_unit":
             if yaml_obj["unit"] == "days":
                 return "daily"
@@ -208,7 +190,7 @@ class ActionHandler():
         else:
             return pin
 
-    def parse_coord(x=0,y=0,z=0,row=None):
+    def parse_coord(self, x=0,y=0,z=0,row=None):
         if row == None:
             return "{\"kind\": \"coordinate\",\"args\": {\"x\": "+ x + "\"y\": " + y + "\"z\": " + z + "} },"
         else:
@@ -260,8 +242,8 @@ class ActionHandler():
             # Note, I'm not sure if the pin_value for Digital mode can be a string or if it must be an integer
         elif "to_self" in action:
             script = script + "{\"kind\":\"move_absolute\","
-            script = script + "\"args\": {\"location\": " + parse_coord(row=row)
-            script = script + "\"args\": {\"offset\": " + parse_coord(self.default(action,"x_off"), self.default(action,"y_off"), self.default(action,"z_off"))
+            script = script + "\"args\": {\"location\": " + self.parse_coord(row=row)
+            script = script + "\"args\": {\"offset\": " + self.parse_coord(self.default(action,"x_off"), self.default(action,"y_off"), self.default(action,"z_off"))
             script = script + "\"speed\": " + self.default(action, "speed") + "},},"
         elif "to_plant" in action:
             with open(self.map, "r") as csv_file:
@@ -269,8 +251,8 @@ class ActionHandler():
                 for row in reader:
                     if row["name"].strip() == action["to_plant"]:
                         script = script + "{\"kind\":\"move_absolute\","
-                        script = script + "\"args\": {\"location\": " + parse_coord(row=row)
-                        script = script + "\"args\": {\"offset\": " + parse_coord(self.default(action,"x_off"), self.default(action,"y_off"), self.default(action,"z_off"))
+                        script = script + "\"args\": {\"location\": " + self.parse_coord(row=row)
+                        script = script + "\"args\": {\"offset\": " + self.parse_coord(self.default(action,"x_off"), self.default(action,"y_off"), self.default(action,"z_off"))
                         script = script + "\"speed\": " + self.default(action, "speed") + "},},"
             # code here
         elif "if" in action:
@@ -280,7 +262,7 @@ class ActionHandler():
             raise Error("The action " + action.keys()[0] + " is undefined.")
         return script
 
-    def check_change(yaml_obj, name):
+    def check_change(self, yaml_obj, name):
         """Checks if an object or any object it depends on has changed.
            IF an object has been changed, it automatically deletes that object from storage.
            yaml_obj: the new obejct definition
@@ -295,7 +277,7 @@ class ActionHandler():
                         for name in self.source_files:
                             file = yaml.load(open(name, mode='r'))
                             if child in file:
-                                if check_change(file[name], child):
+                                if self.check_change(file[name], child):
                                     stor.delete_object(name)
                                     return (True, id)
                 return (False, id)
@@ -314,7 +296,7 @@ class ActionHandler():
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
         if type(name) is not None:
-            changed, id = check_change(yaml_obj, name)
+            changed, id = self.check_change(yaml_obj, name)
             if not changed:
                 return (id, name)
 
@@ -342,27 +324,27 @@ class ActionHandler():
                         if row["group"].strip() in groups or row["types"].strip() in types:
                             for action in actions:
                                 if "to_self" in action:
-                                    script = script + parse_action(action, source_file, row)
+                                    script = script + self.parse_action(action, source_file, row)
                                 else:
-                                    script = script + parse_action(action, source_file)
+                                    script = script + self.parse_action(action, source_file)
                 elif "group" in yaml_obj:
                     groups = yaml_obj["groups"]
                     for row in reader:
                         if row["group"].strip() in groups:
                             for action in actions:
                                 if "to_self" in action:
-                                    script = script + parse_action(action, source_file, row)
+                                    script = script + self.parse_action(action, source_file, row)
                                 else:
-                                    script = script + parse_action(action, source_file)
+                                    script = script + self.parse_action(action, source_file)
                 elif "type" in yaml_obj:
                     types = yaml_obj["types"]
                     for row in reader:
                         if row["types"].strip() in types:
                             for action in actions:
                                 if "to_self" in action:
-                                    script = script + parse_action(action, source_file, row)
+                                    script = script + self.parse_action(action, source_file, row)
                                 else:
-                                    script = script + parse_action(action, source_file)
+                                    script = script + self.parse_action(action, source_file)
                 else:
                     for action in actions:
                         script = script + parse_action(action, source_file)
@@ -378,7 +360,7 @@ class ActionHandler():
                 file = yaml.load(open(file_name))
                 if n in file:
                     send_this["actions"] = file[n]["actions"]
-            seq_id, n = make_sequence(send_this, source_file)
+            seq_id, n = self.make_sequence(send_this, source_file)
             data["children"].append(n)
         data["id"] = seq_id
         stor.add_data(data)
@@ -396,12 +378,12 @@ class ActionHandler():
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
         if type(name) is not None:
-            changed, id = check_change(yaml_obj, name)
+            changed, id = self.check_change(yaml_obj, name)
             if not changed:
                 return (id, name)
 
         script = "{"
-        script = script + "\n  \"color\": " + default_value(regimen, "color") + ","
+        script = script + "\n  \"color\": " + self.default_value(regimen, "color") + ","
         name = ""
         auto = 1 # not-zero is true
         if "name" in yaml_obj:
@@ -436,13 +418,13 @@ class ActionHandler():
                     if n in file:
                         send_this["actions"] = file[n]["actions"]
                         send_this["name"] = n
-            id, n = make_sequence(send_this, source_file)
+            id, n = self.make_sequence(send_this, source_file)
             data["children"].append(n)
-            list_of_sequences.append({"id":sequence_id,"time_offsets": calc_time_offsets(sequence)})
+            list_of_sequences.append({"id":sequence_id,"time_offsets": self.calc_time_offsets(sequence)})
             # Format all the sequences and their times for the regimen
             script = script + "\n  \"regimen_items\": [ "
             for sequence in list_of_sequences:
-                time_offsets = calc_time_offsets(schedule["days"], schedule["times"])
+                time_offsets = self.calc_time_offsets(schedule["days"], schedule["times"])
                 for offset in time_offsets:
                     script = script + "\n    {"
                     script = script + "\n      \"time_offset\": " + time + ","
@@ -455,7 +437,6 @@ class ActionHandler():
             stor.add_data(data)
             return (reg_id, name)
 
-
     def make_farm_event(self, yaml_obj, source_file, name):
         """yaml_obj : An YAML object we already know is an event.
            returns : The ID of the event sent, returned from FarmBot
@@ -466,17 +447,17 @@ class ActionHandler():
            with its name and ID to internal storage."""
 
         if type(name) is not None:
-            changed, id = check_change(yaml_obj, name)
+            changed, id = self.check_change(yaml_obj, name)
             if not changed:
                 return (id, name)
 
             data = {"name" : name, "auto": 0, "kind" : "farm_event", "hash":hash(json.dumps(yaml_obj)), "children":[]}
-            script  = script + "\n  \"start_time\" : \"" + format_time(yaml_obj["start_time"]) + "\","
+            script  = script + "\n  \"start_time\" : \"" + self.format_time(yaml_obj["start_time"]) + "\","
             if "repeat_event" in yaml_obj:
            # The following is a field in Farm Events:
            # repeat_event: {every: default 1, unit = "minutes/hours/days/weeks/months/years", until: ???}
-                script = script + "\n  \"end_time\" : \"" + format_time(yaml_obj["repeat_event"]["until"]) + "\","
-                script = script + "\n  \"repeat\" : " + default_value(yaml_obj["repeat_event"], "every") + "\","
+                script = script + "\n  \"end_time\" : \"" + self.format_time(yaml_obj["repeat_event"]["until"]) + "\","
+                script = script + "\n  \"repeat\" : " + self.default_value(yaml_obj["repeat_event"], "every") + "\","
                 script = script + "\n  \"time_unit\" : \"" + yaml_obj["repeat_event"]["unit"] + "\","
             else:
                script = script + "\n  \"time_unit\" : " + "\"never\","
@@ -491,7 +472,7 @@ class ActionHandler():
                     id, n = self.make_sequence({"actions" : yaml_obj["actions"]}, source_file)
                     script = script + "\n  \"executable_type\" : " + "\"sequence\","
                 else:
-                    id, type, n = obj_from_name(yaml_obj["actions"])
+                    id, type, n = self.obj_from_name(yaml_obj["actions"])
                     script = script + "\n  \"executable_type\" : " + "\"" + type + "\","
             script = script + "\n  \"executable_id\" : " + str(id) +  "\n  \"uuid\": "+name+"\n}"
             data["children"].append(n)
