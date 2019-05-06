@@ -17,41 +17,58 @@ import handle_internal_storage as stor
 
 class ActionHandler():
     PATH = ".internal_storage/farmbot_commands.txt"
-    def __init__(self, yaml_file_names, default_settings=None, csv_file_name=None):
-        """yaml_file_names  : YAML files
-           default_settings : a single file containing
+    def __init__(self, yaml_file_names, csv_file_name=None):
+        """yaml_file_names  : a list of YAML files
            csv_file_names   : a list of CSV files holding map coordinates"""
         self.source_files = {} # {file : {pin_aliases : {alias : PIN}}}
         self.map = csv_file_name
         self.settings = (1, 50, 0, 0, 0, 0) #scale, speed, z, x_offset, y_offset, z_offset
-        # self.get_defaults(yaml_file_names, default_settings)
+        self.get_defaults(yaml_file_names)
         # self.load_actions()
 
-    def get_defaults(self, yaml_file_names, default_settings):
-        if type(default_settings) is not None:
-            settings = yaml.load(open(default_settings, 'r'))
-            if "scale" in settings:
-                self.settings = settings["scale"]
-            if "default_speed" in settings:
-                self.settings = settings["default_speed"]
-            if "default_z" in settings:
-                self.settings = settings["default_z"]
-            if "default_x_offset" in settings:
-                self.settings = settings["default_x_offset"]
-            if "default_y_offset" in settings:
-                self.settings = settings["default_y_offset"]
-            if "default_z_offset" in settings:
-                self.settings = settings["default_z_offset"]
+    def get_defaults(self, yaml_file_names):
         sources = set(yaml_file_names)
         for file_name in sources:
-            file = yaml.load(open(f, 'r'))
-            self.source_files[f] = {}
+            file = yaml.load(open(file_name, 'r'))
+            self.source_files[file_name] = {}
+            self.source_files[file_name]["pin_aliases"] = {}
             if "options" in file:
                 if "pin_aliases" in file["options"]:
-                    for alias in file["options"]["pin_aliases"]:
-                        self.source_files[file_name]["pin_aliases"][alias] = file[alias]
+                    for alias, pin in file["options"]["pin_aliases"].items():
+                        self.source_files[file_name]["pin_aliases"][alias] = pin
+                if "scale" in file["options"]:
+                    strings = file["options"]["scale"].split()
+                    self.source_files[file_name]["scale"] = 1
+                    if strings[1] == "cm":
+                        self.source_files[file_name]["scale"] = int(strings[0])*10
+                    if strings[1] == "mm":
+                        self.source_files[file_name]["scale"] = int(strings[0])
+                    if strings[1] == "m":
+                        self.source_files[file_name]["scale"] = int(strings[0])*1000
+                else:
+                    self.source_files[file_name]["scale"] = 1
+                if "default_speed" in file["options"]:
+                    self.source_files[file_name]["speed"] = file["options"]["default_speed"]
+                else:
+                    self.source_files[file_name]["speed"] = 50
+                if "default_z" in file["options"]:
+                    self.source_files[file_name]["z"] = file["options"]["default_z"]
+                else:
+                    self.source_files[file_name]["speed"] = 0
+                if "default_x_offset" in file["options"]:
+                    self.source_files[file_name]["x_off"] = file["options"]["default_x_offset"]
+                else:
+                    self.source_files[file_name]["x_off"] = 0
+                if "default_y_offset" in file["options"]:
+                    self.source_files[file_name]["y_off"] = file["options"]["default_y_offset"]
+                else:
+                    self.source_files[file_name]["y_off"] = 0
+                if "default_z_offset" in file["options"]:
+                    self.source_files[file_name]["z_off"] = file["options"]["default_z_offset"]
+                else:
+                    self.source_files[file_name]["z_off"] = 0
             if "other_files" in file["options"]: # aka it refers to other files
-                    sources.union(set(file[key]))
+                    sources.union(set(file["options"]["other_files"]))
 
     def obj_from_name(self, name):
         """name : the name of a YAML object
@@ -95,21 +112,21 @@ class ActionHandler():
 
     def calc_time_offsets(self, schedule):
         """regimen : A yaml object that includes this:
-           schedule: [{group: [optional], type: [optional], days: [], times: [], actions: <<list of actions or name of sequence>>}
+           schedule: {group: [optional], type: [optional], days: [], times: [], actions: <<list of actions or name of sequence>>}
            OR
-           schedule: [{group: [optional], type: [optional], every: 4, unit: "minutes/hours/days/weeks/months/years", max: 10, actions: <<list of actions or name of sequence>>}
+           schedule: {group: [optional], type: [optional], every: 4, unit: "minutes/hours/days/weeks/months/years", max: 10, actions: <<list of actions or name of sequence>>}
            returns : a list of integers that are time_offset(s) for CeleryScript"""
         time_offsets = []
         if "days" in schedule:
             days = schedule["days"]
             times = []
             for time in schedule["times"]:
-                times.add(int(time[0:2])*60*60*1000 + int(time[3:])*60*1000)
+                times.append(int(time[0:2])*60*60*1000 + int(time[3:])*60*1000)
             now = datetime.datetime.now()
             for day in days:
                 begin = (day - 1) * 24*60*60*1000
                 for time in times:
-                    time_offsets.add(begin+time)
+                    time_offsets.append(begin+time)
         elif "every" in schedule:
             every = schedule["every"]
             unit = schedule["unit"]
@@ -126,9 +143,9 @@ class ActionHandler():
                 period = every*30*24*60*60*1000
             elif unit == "years":
                 period = every*365*24*60*60*1000
-            for i in range(0,max):
-                time_offsets.add(i*period)
-            return time_offsets
+            for i in range(0,schedule["max"]):
+                time_offsets.append(i*period)
+        return time_offsets
 
     def format_time(self, time):
         """time: DD/MM/YYYY 23:00
@@ -140,7 +157,7 @@ class ActionHandler():
         else:
             return string + "+" + str(tz) + ":00"
 
-    def default(self, yaml_obj, field):
+    def default(self, yaml_obj, field, source_file):
         if field == "color":
             if "color" in yaml_obj:
                 return yaml_obj["color"]
@@ -153,29 +170,30 @@ class ActionHandler():
                 return str(1)
         elif field == "speed":
             if "speed" in yaml_obj:
-                return yaml_obj["speed"]
+                return str(yaml_obj["speed"])
             else:
-                return str(self.settings[1])
+                return str(self.source_files[source_file]["speed"])
+        # Note: The default coordinates are unscaled.
         elif field == "z":
             if "z" in yaml_obj:
-                return yaml_obj["z"]
+                return int(yaml_obj["z"])
             else:
-                return str(self.settings[2])
+                return int(self.source_files[source_file]["z"])
         elif field == "x_off":
-            if "x_offset" in yaml_obj:
-                return yaml_obj["x_offset"]
+            if "x_off" in yaml_obj:
+                return int(yaml_obj["x_off"])
             else:
-                return str(self.settings[3])
-        elif field == "x_off":
-            if "x_offset" in yaml_obj:
-                return yaml_obj["x_offset"]
+                return int(self.source_files[source_file]["x_off"])
+        elif field == "y_off":
+            if "y_off" in yaml_obj:
+                return int(yaml_obj["y_off"])
             else:
-                return str(self.settings[4])
-        elif field == "x_off":
-            if "x_offset" in yaml_obj:
-                return yaml_obj["x_offset"]
+                return int(self.source_files[source_file]["y_off"])
+        elif field == "z_off":
+            if "z_off" in yaml_obj:
+                return int(yaml_obj["z_off"])
             else:
-                return str(self.settings[5])
+                return int(self.source_files[source_file]["z_off"])
 
     def translate(self, yaml_obj, field):
         if field == "time_unit":
@@ -184,36 +202,48 @@ class ActionHandler():
             else:
                 return yaml_obj["unit"][0:-1] + "ly"
 
-    def pin_name(self, pin, source):
-        if pin in self.source_files[source]["pin_aliases"]:
-            return self.source_files[source]["pin_aliases"][pin]
+    def pin_name(self, pin, source_file):
+        if pin in self.source_files[source_file]["pin_aliases"]:
+            return self.source_files[source_file]["pin_aliases"][pin]
         else:
             return pin
 
-    def parse_coord(self, x=0,y=0,z=0,row=None):
-        if row == None:
-            return "{\"kind\": \"coordinate\",\"args\": {\"x\": "+ x + "\"y\": " + y + "\"z\": " + z + "} },"
-        else:
-            script = "{\"kind\": \"coordinate\",\"args\": {\"x\": "+ row["x"] + "\"y\": " + row["y"] + "\"z\": "
+    def parse_coord(self, coords=None,row=None, source_file=None):
+        """coords = {x:0, y:0, z:0} or {x_off:0, y_off:0, z_off:0}
+           row = A CSV for of a plant
+           """
+        if row is not None:
+            # If we are supposed to move to the location of a plant, defined by a CSV row which may have no "z" provided.
+            scale = self.source_files[source_file]["scale"]
+            script = "{\"kind\": \"coordinate\",\"args\": {\"x\": "+ row["x"]*scale + ",\"y\": " + row["y"]*scale + ",\"z\": "
             if row["z"].strip()!="":
-                script = script + row["z"] + "} },"
+                script = script + row["z"]*scale + "} },"
             else:
-                script = script + default({},"z") + "} },"
+                script = script + str(self.default({},"z", source_file)*scale) + "} },"
             return script
+        elif coords is not None:
+            # If we are provided coords
+            scale = self.source_files[source_file]["scale"]
+            if "x" in coords:
+                return "{\"kind\": \"coordinate\",\"args\": {\"x\": "+ str(coords["x"]*scale) + ",\"y\": " + str(coords["y"]*scale) + ",\"z\": " + str(self.default(coords,"z",source_file)*scale) + "} },"
+            else:
+                return "{\"kind\": \"coordinate\",\"args\": {\"x\": "+ str(self.default(coords,"x_off",source_file)*scale) + ",\"y\": " + str(self.default(coords,"y_off",source_file)*scale) + ",\"z\": " + str(self.default(coords,"z_off",source_file)*scale) + "} },"
+
 
     def parse_action(self,action, source_file, row=None):
+        # The row is only needed for the action to_self
         script = ""
         if "move_abs" in action:
             args = action["move_abs"]
             script = script + "{\"kind\":\"move_absolute\","
-            script = script + "\"args\": {\"location\": " + parse_coord(args["x"], args["y"], self.default(args,"z"))
-            script = script + "\"args\": {\"offset\": " + parse_coord(self.default(args,"x_off"), self.default(args,"y_off"), self.default(args,"z_off"))
-            script = script + "\"speed\": " + self.default(args, "speed") + "},},"
+            script = script + "\"args\": {\"location\": " + self.parse_coord(coords=args,source_file=source_file)
+            script = script + "\"args\": {\"offset\": " + self.parse_coord(coords=args,source_file=source_file)
+            script = script + "\"speed\": " + self.default(args, "speed",source_file) + "},},"
         elif "move_rel" in action:
             args = action["move_rel"]
             script = script + "{\"kind\":\"move_relative\","
-            script = script + "\"args\": {\"location\": " + parse_coord(args["x"], args["y"], self.default(args,"z"))
-            script = script + "\"speed\": " + self.default(args, "speed") + "},},"
+            script = script + "\"args\": {\"location\": " + self.parse_coord(coords=args,source_file=source_file)
+            script = script + "\"speed\": " + self.default(args, "speed",source_file) + "},},"
         elif "find_home" in action:
             script = script + "{\"kind\":\"find_home\",{\"args\": { \"axis\": "
             args = action["find_home"]
@@ -225,7 +255,7 @@ class ActionHandler():
                 script = script + "\"z\","
             else:
                 script = script + "\"all\","
-            script = script + "\"speed\": " + self.default(args, "speed") + "},},"
+            script = script + "\"speed\": " + self.default(args, "speed",source_file) + "},},"
         elif "wait" in action:
             return "{\"kind\": \"wait\", \"args\": { \"milliseconds\": \""+ action["wait"] + "\" } },"
         elif "read_pin" in action:
@@ -242,45 +272,45 @@ class ActionHandler():
             # Note, I'm not sure if the pin_value for Digital mode can be a string or if it must be an integer
         elif "to_self" in action:
             script = script + "{\"kind\":\"move_absolute\","
-            script = script + "\"args\": {\"location\": " + self.parse_coord(row=row)
-            script = script + "\"args\": {\"offset\": " + self.parse_coord(self.default(action,"x_off"), self.default(action,"y_off"), self.default(action,"z_off"))
-            script = script + "\"speed\": " + self.default(action, "speed") + "},},"
+            script = script + "\"args\": {\"location\": " + self.parse_coord(row=row,source_file=source_file)
+            script = script + "\"args\": {\"offset\": " + self.parse_coord(coords=args,source_file=source_file)
+            script = script + "\"speed\": " + self.default(action, "speed",source_file) + "},},"
         elif "to_plant" in action:
             with open(self.map, "r") as csv_file:
                 reader = csv.Dictreader(csv_file)
                 for row in reader:
                     if row["name"].strip() == action["to_plant"]:
                         script = script + "{\"kind\":\"move_absolute\","
-                        script = script + "\"args\": {\"location\": " + self.parse_coord(row=row)
-                        script = script + "\"args\": {\"offset\": " + self.parse_coord(self.default(action,"x_off"), self.default(action,"y_off"), self.default(action,"z_off"))
-                        script = script + "\"speed\": " + self.default(action, "speed") + "},},"
+                        script = script + "\"args\": {\"location\": " + self.parse_coord(row=row,source_file=source_file)
+                        script = script + "\"args\": {\"offset\": " + self.parse_coord(coords=args,source_file=source_file)
+                        script = script + "\"speed\": " + self.default(action, "speed",source_file) + "},},"
         elif "if" in action:
             script = script + "{\"kind\":\"_if\","
-            script = script + "\"args\": {\"lhs\": "+ self.pin_name(args["pin"])+"\"," "\"op\": \""+ operator +"\"," "\"rhs\": \""+ action["value"] +"\","
+            script = script + "\"args\": {\"lhs\": "+ self.pin_name(args["pin"],source_file)+"\"," "\"op\": \""+ operator +"\"," "\"rhs\": \""+ action["value"] +"\","
             script = script + "\"_then\": { "
-            if parse_operator(operator)(self.pin_name(args["pin"]), action["value"]):
-                script = script + "{\"kind\":\"execute","
-                script = script + "\"args\": {\"sequence_id\": " + self.default(action, "sequence_id") +"\","" + " } },"
+            if parse_operator(operator)(self.pin_name(args["pin"],source_file), action["value"]):
+                script = script + "{\"kind\":\"execute\","
+                script = script + "\"args\": {\"sequence_id\": " + self.default(action, "sequence_id",source_file) +"\"," + " } },"
                 script = script + "\"_else\": { "
-                script = script + "{\"kind\":\"nothing","
-                script = script + "\"args\": { " + "\","" + " } } } }"
+                script = script + "{\"kind\":\"nothing\","
+                script = script + "\"args\": { " + "\"," + " } } } }"
             else:
-                script = script + "{\"kind\":\"nothing","
-                script = script + "\"args\": { " +"\","" + " } },"
+                script = script + "{\"kind\":\"nothing\","
+                script = script + "\"args\": { " +"\"," + " } },"
                 script = script + "\"_else\": { "
-                script = script + "{\"kind\":\"execute","
-                script = script + "\"args\": {\"sequence_id\": " + self.default(action, "sequence_id") +"\","" + " } },"
-                
+                script = script + "{\"kind\":\"execute\","
+                script = script + "\"args\": {\"sequence_id\": " + self.default(action, "sequence_id",source_file) +"\"," + " } },"
+
         else:
             raise Error("The action " + action.keys()[0] + " is undefined.")
         return script
-    
+
     import operator
     def parse_operator(string):
         """get the operator from the string given"""
         ops = {
                 "is": operator.is_,
-                "is not": operator.is_not,          
+                "is not": operator.is_not,
                 }
         return ops[string]
 
@@ -479,7 +509,7 @@ class ActionHandler():
            # The following is a field in Farm Events:
            # repeat_event: {every: default 1, unit = "minutes/hours/days/weeks/months/years", until: ???}
                 script = script + "\n  \"end_time\" : \"" + self.format_time(yaml_obj["repeat_event"]["until"]) + "\","
-                script = script + "\n  \"repeat\" : " + self.default_value(yaml_obj["repeat_event"], "every") + "\","
+                script = script + "\n  \"repeat\" : " + self.default_value(yaml_obj["repeat_event"], "every", source_file) + "\","
                 script = script + "\n  \"time_unit\" : \"" + yaml_obj["repeat_event"]["unit"] + "\","
             else:
                script = script + "\n  \"time_unit\" : " + "\"never\","

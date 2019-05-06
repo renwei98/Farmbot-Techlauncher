@@ -1,6 +1,7 @@
 import yaml, json
 import requests
 import os
+import http_requests as http
 
 print(type(os.getenv("API_KEY")))
 
@@ -50,11 +51,20 @@ def check_exist(name):
             return (True, file[key]["id"])
     return (False, -1, file[name]["hash"])
 
+def delete_all():
+    file = yaml.load(open(PATH,mode='r'))
+    for name in file:
+        http.delete_command(file[name]["id"], file[name]["kind"])
+        del file[name]
+    yaml.dump(file, open(PATH, 'w'))
+    return
+
 def delete_object(name):
     file = yaml.load(open(PATH,mode='r'))
     children = set()
     if "children" in file[name]:
         children = set(file[name]["children"])
+    http.delete_command(file[name]["id"], file[name]["kind"])
     del file[name]
     yaml.dump(file, open(PATH, 'w'))
     for child in children:
@@ -67,6 +77,7 @@ def delete_outdated(name):
         children = set()
         if "children" in file[name]:
             children = set(file[name]["children"])
+        http.delete_command(file[name]["id"], file[name]["kind"])
         del file[name]
         yaml.dump(file, open(PATH, 'w'))
         for child in children:
