@@ -254,13 +254,35 @@ class ActionHandler():
                         script = script + "\"args\": {\"location\": " + self.parse_coord(row=row)
                         script = script + "\"args\": {\"offset\": " + self.parse_coord(self.default(action,"x_off"), self.default(action,"y_off"), self.default(action,"z_off"))
                         script = script + "\"speed\": " + self.default(action, "speed") + "},},"
-            # code here
         elif "if" in action:
-            pass
-            # difficult code here
+            script = script + "{\"kind\":\"_if\","
+            script = script + "\"args\": {\"lhs\": "+ self.pin_name(args["pin"])+"\"," "\"op\": \""+ operator +"\"," "\"rhs\": \""+ action["value"] +"\","
+            script = script + "\"_then\": { "
+            if parse_operator(operator)(self.pin_name(args["pin"]), action["value"]):
+                script = script + "{\"kind\":\"execute","
+                script = script + "\"args\": {\"sequence_id\": " + self.default(action, "sequence_id") +"\","" + " } },"
+                script = script + "\"_else\": { "
+                script = script + "{\"kind\":\"nothing","
+                script = script + "\"args\": { " + "\","" + " } } } }"
+            else:
+                script = script + "{\"kind\":\"nothing","
+                script = script + "\"args\": { " +"\","" + " } },"
+                script = script + "\"_else\": { "
+                script = script + "{\"kind\":\"execute","
+                script = script + "\"args\": {\"sequence_id\": " + self.default(action, "sequence_id") +"\","" + " } },"
+                
         else:
             raise Error("The action " + action.keys()[0] + " is undefined.")
         return script
+    
+    import operator
+    def parse_operator(string):
+        """get the operator from the string given"""
+        ops = {
+                "is": operator.is_,
+                "is not": operator.is_not,          
+                }
+        return ops[string]
 
     def check_change(self, yaml_obj, name):
         """Checks if an object or any object it depends on has changed.
