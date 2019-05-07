@@ -215,9 +215,9 @@ class ActionHandler():
         if row is not None:
             # If we are supposed to move to the location of a plant, defined by a CSV row which may have no "z" provided.
             scale = self.source_files[source_file]["scale"]
-            script = "{\"kind\": \"coordinate\",\"args\": {\"x\": "+ row["x"]*scale + ",\"y\": " + row["y"]*scale + ",\"z\": "
+            script = "{\"kind\": \"coordinate\",\"args\": {\"x\": "+ str(int(row["x"])*scale) + ",\"y\": " + str(int(row["y"])*scale) + ",\"z\": "
             if row["z"].strip()!="":
-                script = script + row["z"]*scale + "} },"
+                script = script + str(int(row["z"])*scale) + "} },"
             else:
                 script = script + str(self.default({},"z", source_file)*scale) + "} },"
             return script
@@ -237,53 +237,57 @@ class ActionHandler():
             args = action["move_abs"]
             script = script + "{\"kind\":\"move_absolute\","
             script = script + "\"args\": {\"location\": " + self.parse_coord(coords=args,source_file=source_file)
-            script = script + "\"args\": {\"offset\": " + self.parse_coord(coords=args,source_file=source_file)
-            script = script + "\"speed\": " + self.default(args, "speed",source_file) + "},},"
+            script = script + "\"offset\": " + self.parse_coord(coords=args,source_file=source_file)
+            script = script + "\"speed\": " + self.default(args, "speed",source_file) + "} },"
         elif "move_rel" in action:
             args = action["move_rel"]
             script = script + "{\"kind\":\"move_relative\","
             script = script + "\"args\": {\"location\": " + self.parse_coord(coords=args,source_file=source_file)
-            script = script + "\"speed\": " + self.default(args, "speed",source_file) + "},},"
+            script = script + "\"speed\": " + self.default(args, "speed",source_file) + "} },"
         elif "find_home" in action:
-            script = script + "{\"kind\":\"find_home\",{\"args\": { \"axis\": "
             args = action["find_home"]
-            if "x" in args:
-                script = script + "\"x\","
-            if "y" in args:
-                script = script + "\"y\","
-            if "z" in args:
-                script = script + "\"z\","
-            else:
+            if "all" in args or len(args)==0:
+                script = script + "{\"kind\":\"find_home\",{\"args\": { \"axis\": "
                 script = script + "\"all\","
-            script = script + "\"speed\": " + self.default(args, "speed",source_file) + "},},"
+                script = script + "\"speed\": " + self.default(args, "speed",source_file) + "} },"
+            else:
+                for coord in args:
+                    script = script + "{\"kind\":\"find_home\",{\"args\": { \"axis\": "
+                    script = script + "\""+coord+"\","
+                    script = script + "\"speed\": " + self.default(args, "speed",source_file) + "} },"
         elif "wait" in action:
-            return "{\"kind\": \"wait\", \"args\": { \"milliseconds\": \""+ action["wait"] + "\" } },"
+            return "{\"kind\": \"wait\", \"args\": { \"milliseconds\": "+ str(action["wait"]) + " } },"
         elif "read_pin" in action:
             args = action["read_pin"]
             script = script + "{\"kind\": \"read_pin\", \"args\": { "
-            if "label" in args["read_pin"]:
+            if "label" in args:
                 script = script + "\"label\": \""+ args["label"] +"\","
             script = script + "\"pin_number\": \""+ self.pin_name(args["pin"], source_file) +"\", \"pin_mode\": \""+ args["mode"] + "\" } },"
         elif "write_pin" in action:
             args = action["write_pin"]
             script = script + "{\"kind\": \"write_pin\", \"args\": { "
             script = script + "\"pin_mode\": \""+ args["mode"] +"\","
-            script = script + "\"pin_number\": \""+ self.pin_name(args["pin"], source_file) +"\"," "\"pin_value\": \""+ action["value"] ++ "\" } },"
+            script = script + "\"pin_number\": \""+ self.pin_name(args["pin"], source_file) +"\"," + "\"pin_value\": \""+ args["value"] + "\" } },"
             # Note, I'm not sure if the pin_value for Digital mode can be a string or if it must be an integer
         elif "to_self" in action:
+            args = action["to_self"]
             script = script + "{\"kind\":\"move_absolute\","
             script = script + "\"args\": {\"location\": " + self.parse_coord(row=row,source_file=source_file)
-            script = script + "\"args\": {\"offset\": " + self.parse_coord(coords=args,source_file=source_file)
+            script = script + "\"offset\": " + self.parse_coord(coords=args,source_file=source_file)
             script = script + "\"speed\": " + self.default(action, "speed",source_file) + "},},"
         elif "to_plant" in action:
-            with open(self.map, "r") as csv_file:
-                reader = csv.Dictreader(csv_file)
-                for row in reader:
-                    if row["name"].strip() == action["to_plant"]:
-                        script = script + "{\"kind\":\"move_absolute\","
-                        script = script + "\"args\": {\"location\": " + self.parse_coord(row=row,source_file=source_file)
-                        script = script + "\"args\": {\"offset\": " + self.parse_coord(coords=args,source_file=source_file)
-                        script = script + "\"speed\": " + self.default(action, "speed",source_file) + "},},"
+            try:
+                with open(self.map, "r") as csv_file:
+                    reader = csv.DictReader(csv_file)
+                    args = action["to_plant"]
+                    for row in reader:
+                        if row["name"].strip() == action["to_plant"]["name"]:
+                            script = script + "{\"kind\":\"move_absolute\","
+                            script = script + "\"args\": {\"location\": " + self.parse_coord(row=row,source_file=source_file)
+                            script = script + "\"offset\": " + self.parse_coord(coords=args,source_file=source_file)
+                            script = script + "\"speed\": " + self.default(args, "speed",source_file) + "} },"
+            except:
+                raise Exception("A \"to_plant\" command requires a CSV file.")
         elif "if" in action:
             script = script + "{\"kind\":\"_if\","
             script = script + "\"args\": {\"lhs\": "+ self.pin_name(args["pin"],source_file)+"\"," "\"op\": \""+ operator +"\"," "\"rhs\": \""+ action["value"] +"\","
@@ -302,7 +306,7 @@ class ActionHandler():
                 script = script + "\"args\": {\"sequence_id\": " + self.default(action, "sequence_id",source_file) +"\"," + " } },"
 
         else:
-            raise Error("The action " + action.keys()[0] + " is undefined.")
+            raise Exception("The action " + action.keys() + " is undefined.")
         return script
 
     import operator
@@ -347,7 +351,7 @@ class ActionHandler():
            program-set name, then turns it into a CeleryScript command, sends
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
-        if type(name) is not None:
+        if "name" in yaml_obj:
             changed, id = self.check_change(yaml_obj, name)
             if not changed:
                 return (id, name)
@@ -368,7 +372,7 @@ class ActionHandler():
         actions = yaml_obj["actions"]
         if actions is not str:
             with open(self.map, "r") as csv_file:
-                reader = csv.Dictreader(csv_file)
+                reader = csv.DictReader(csv_file)
                 if "group" in yaml_obj and "type" in yaml_obj:
                     groups = yaml_obj["groups"]
                     types = yaml_obj["types"]
@@ -429,13 +433,13 @@ class ActionHandler():
            program-set name, then turns it into a CeleryScript command, sends
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
-        if type(name) is not None:
+        if "name" in yaml_obj:
             changed, id = self.check_change(yaml_obj, name)
             if not changed:
                 return (id, name)
 
         script = "{"
-        script = script + "\n  \"color\": " + self.default_value(regimen, "color") + ","
+        script = script + "\n  \"color\": " + self.default_value(regimen, "color", source_file) + ","
         name = ""
         auto = 1 # not-zero is true
         if "name" in yaml_obj:
@@ -498,7 +502,7 @@ class ActionHandler():
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
 
-        if type(name) is not None:
+        if "name" in yaml_obj:
             changed, id = self.check_change(yaml_obj, name)
             if not changed:
                 return (id, name)
