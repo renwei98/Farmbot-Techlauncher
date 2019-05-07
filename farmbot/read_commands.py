@@ -9,14 +9,13 @@ import http_requests as http
 import datetime
 from time import timezone
 import handle_internal_storage as stor
-# import
 
 # device_id = api_token_gen.token_data['token']['unencoded']['bot']
 # mqtt_host = api_token_gen.token_data['token']['unencoded']['mqtt']
 # token = api_token_gen.token_data['token']['encoded']
 
 class ActionHandler():
-    PATH = ".internal_storage/farmbot_commands.txt"
+    PATH = "../.internal_data/farmbot_commands.yaml"
     def __init__(self, yaml_file_names, csv_file_name=None):
         """yaml_file_names  : a list of YAML files
            csv_file_names   : a list of CSV files holding map coordinates"""
@@ -94,19 +93,17 @@ class ActionHandler():
     def load_commands(self):
         """Modifies self.source_files, self.seq_script, and self.reg_script
            corrosponds to 'process_a_file' in the pseudocode"""
-        file = yaml.load(open(yaml_file_name))
-        if "other_files" in file:
-            self.source_files.union(set(file["other_files"]))
         for source in self.source_files:
             file = yaml.load(open(source, "r"))
-            self.source_files[source] = yaml_file
             for name in file:
-                if "start_time" in yaml_obj:
-                    self.make_farm_event(file[name], name, source)
-                elif "schedule" in yaml_obj:
-                    self.make_regimen(file[name], name, source)
-                elif "actions" in yaml_obj:
-                    self.make_sequence(file[name], name, source)
+                if "start_time" in file[name]:
+                    self.make_farm_event(file[name], source, name)
+                elif "schedule" in file[name]:
+                    print(self.make_regimen(file[name], source, obj_name=name))
+                elif "actions" in file[name]:
+                    print(self.make_sequence(file[name], source, obj_name=name))
+                elif name=="options":
+                    pass
                 else:
                     print("Invalid format for object:", name, source)
 
@@ -233,7 +230,14 @@ class ActionHandler():
     def parse_action(self,action, source_file, row=None):
         # The row is only needed for the action to_self
         script = ""
-        if "move_abs" in action:
+        if action is str:
+            # This means the action is actually another sequence
+            for source in self.source_files:
+                file = yaml.load(open(source, 'r'))
+                if action in file:
+                    id, n = self.make_sequence(file[action], source, obj_name=action)
+                    script = script + "" # CELERYSCRIPT FOR SUB-SEQUENCE
+        elif "move_abs" in action:
             args = action["move_abs"]
             script = script + "{\"kind\":\"move_absolute\","
             script = script + "\"args\": {\"location\": " + self.parse_coord(coords=args,source_file=source_file)
@@ -306,7 +310,7 @@ class ActionHandler():
                 script = script + "\"args\": {\"sequence_id\": " + self.default(action, "sequence_id",source_file) +"\"," + " } },"
 
         else:
-            raise Exception("The action " + action.keys() + " is undefined.")
+            raise Exception("The action " + action + " is undefined.")
         return script
 
     import operator
@@ -341,9 +345,10 @@ class ActionHandler():
                 stor.delete_object(name)
                 return (True, id)
         else:
-            return (False, id)
+            # Does not exist and needs to be made.
+            return (True, id)
 
-    def make_sequence(self, yaml_obj, source_file, name = None):
+    def make_sequence(self, yaml_obj, source_file, obj_name = None):
         """sequence : Includes or is a list of actions.
            returns : The ID of the sequence sent, returned from FarmBot
 
@@ -351,26 +356,27 @@ class ActionHandler():
            program-set name, then turns it into a CeleryScript command, sends
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
-        if "name" in yaml_obj:
-            changed, id = self.check_change(yaml_obj, name)
+        if obj_name is not None:
+            changed, id = self.check_change(yaml_obj, obj_name)
             if not changed:
-                return (id, name)
+                return (id, obj_name)
 
         script = "{"
         name = ""
         auto = 1 # not-zero is true
-        seq_id = -1
-        if "name" in yaml_obj:
-            name = yaml_obj["name"]
+        id = -1
+        if obj_name is not None:
+            name = obj_name
             auto = 0 # zero is false
         else:
             name = stor.unique_name()
+
         script = script + "\n  \"name\": " + name + ","
-        data = {"name" : name, "auto": auto, "kind" : "regimen", "hash":hash(json.dumps(yaml_obj)), "children":[]}
+        data = {"name" : name, "auto": auto, "kind" : "sequence", "hash":hash(json.dumps(yaml_obj)), "children":[]}
 
         script = script + "\n  \"body\": [ \n    {"
         actions = yaml_obj["actions"]
-        if actions is not str:
+        if self.map is not None:
             with open(self.map, "r") as csv_file:
                 reader = csv.DictReader(csv_file)
                 if "group" in yaml_obj and "type" in yaml_obj:
@@ -379,50 +385,45 @@ class ActionHandler():
                     for row in reader:
                         if row["group"].strip() in groups or row["types"].strip() in types:
                             for action in actions:
-                                if "to_self" in action:
-                                    script = script + self.parse_action(action, source_file, row)
-                                else:
-                                    script = script + self.parse_action(action, source_file)
+                                # We need the "row" arguement just in case the action is "to_self"
+                                script = script + self.parse_action(action, source_file, row)
                 elif "group" in yaml_obj:
                     groups = yaml_obj["groups"]
                     for row in reader:
                         if row["group"].strip() in groups:
                             for action in actions:
-                                if "to_self" in action:
-                                    script = script + self.parse_action(action, source_file, row)
-                                else:
-                                    script = script + self.parse_action(action, source_file)
+                                # We need the "row" arguement just in case the action is "to_self"
+                                script = script + self.parse_action(action, source_file, row)
                 elif "type" in yaml_obj:
                     types = yaml_obj["types"]
                     for row in reader:
                         if row["types"].strip() in types:
                             for action in actions:
-                                if "to_self" in action:
-                                    script = script + self.parse_action(action, source_file, row)
-                                else:
-                                    script = script + self.parse_action(action, source_file)
+                                # We need the "row" arguement just in case the action is "to_self"
+                                script = script + self.parse_action(action, source_file, row)
                 else:
+                    # There is a map provided, but we don't need it.
                     for action in actions:
-                        script = script + parse_action(action, source_file)
-            script = script[0:-1] # Truncate off the last comma
+                        script = script + self.parse_action(action, source_file)
+                    script = script[0:-1] # Truncate off the last comma of the last action
+                    script = "\n      \"uuid\": " + name + "\n    }\n  ]\n}"
+                    # script = json.dumps(json.loads(script), indent="  ", sort_keys=False))
+            id = http.new_command(script, "sequence")
+        else:
+            # There is no map provided, and we assume we don't need one.
+            for action in actions:
+                script = script + parse_action(action, source_file)
+            script = script[0:-1] # Truncate off the last comma of the last action
             script = "\n      \"uuid\": " + name + "\n    }\n  ]\n}"
             # script = json.dumps(json.loads(script), indent="  ", sort_keys=False))
-            seq_id = http.get_id_back(json.load(script), name)
-        else:
-            # If this sequence only send the actions of some other sequence
-            # but with different types and groups
-            send_this = yaml_obj
-            for file_name in self.source_files:
-                file = yaml.load(open(file_name))
-                if n in file:
-                    send_this["actions"] = file[n]["actions"]
-            seq_id, n = self.make_sequence(send_this, source_file)
-            data["children"].append(n)
-        data["id"] = seq_id
+            id = http.new_command(script, "sequence")
+        data["id"] = id
         stor.add_data(data)
-        return (seq_id, name)
+        print(script)
 
-    def make_regimen(self, yaml_obj, source_file, name = None):
+        return (id, name)
+
+    def make_regimen(self, yaml_obj, source_file, obj_name = None):
         """regimen : A yaml object that includes this:
              schedule: [{group: [optional], type: [optional], days: [], times: [], actions: <<list of actions or name of sequence>>}
              OR
@@ -433,17 +434,17 @@ class ActionHandler():
            program-set name, then turns it into a CeleryScript command, sends
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
-        if "name" in yaml_obj:
-            changed, id = self.check_change(yaml_obj, name)
+        if obj_name is not None:
+            changed, id = self.check_change(yaml_obj, obj_name)
             if not changed:
-                return (id, name)
+                return (id, obj_name)
 
         script = "{"
-        script = script + "\n  \"color\": " + self.default_value(regimen, "color", source_file) + ","
+        script = script + "\n  \"color\": " + self.default(yaml_obj, "color", source_file) + ","
         name = ""
         auto = 1 # not-zero is true
-        if "name" in yaml_obj:
-            name = yaml_obj["name"]
+        if obj_name is not None:
+            name = obj_name
             auto = 0 # zero is false
         else:
             name = stor.unique_name()
@@ -466,34 +467,43 @@ class ActionHandler():
                 send_this["groups"] = sequence["groups"]
             if "types" in sequence:
                 send_this["types"] = sequence["types"]
+            id = -1
+            n = ""
             if type(sequence["actions"]) is not str:
+                # If the actions in the regimen is a list,
+                # and we need to generate the sequence ourselves.
                 send_this["actions"] = sequence["actions"]
+                id, n = self.make_sequence(send_this, source_file)
             else:
+                # If the sequence refers to a sequence defined elsewhere by the user,
+                # and we need to find it.
+                looking_for = sequence["actions"]
                 for file_name in self.source_files:
-                    file = yaml.load(open(file_name))
-                    if n in file:
+                    file = yaml.load(open(file_name, 'r'))
+                    if looking_for in file:
                         send_this["actions"] = file[n]["actions"]
-                        send_this["name"] = n
-            id, n = self.make_sequence(send_this, source_file)
+                        id, n = self.make_sequence(send_this, source_file, obj_name=looking_for)
+                        break
             data["children"].append(n)
             list_of_sequences.append({"id":sequence_id,"time_offsets": self.calc_time_offsets(sequence)})
             # Format all the sequences and their times for the regimen
-            script = script + "\n  \"regimen_items\": [ "
-            for sequence in list_of_sequences:
-                time_offsets = self.calc_time_offsets(schedule["days"], schedule["times"])
-                for offset in time_offsets:
-                    script = script + "\n    {"
-                    script = script + "\n      \"time_offset\": " + time + ","
-                    script = script + "\n      \"sequence_id\": " + sequence[0]
-                    script = script + "\n    },"
-            script = script[0:-1] # Truncate off the last comma
+        script = script + "\n  \"regimen_items\": [ "
+        for sequence in list_of_sequences:
+            time_offsets = sequence["time_offsets"]
+            seq_id = sequence["id"]
+            for offset in time_offsets:
+                script = script + "\n    {"
+                script = script + "\n      \"time_offset\": " + offset + ","
+                script = script + "\n      \"sequence_id\": " + seq_id
+                script = script + "\n    },"
+            script = script[0:-1] # Truncate off the last comma of the last item
             script = script + "\n  ], \n  \"uuid\": "+name+"\n}"
-            reg_id = http.get_id_back(json.load(script), name)
-            data["id"] = reg_id
-            stor.add_data(data)
-            return (reg_id, name)
+        reg_id = http.new_command(script, "regimen")
+        data["id"] = reg_id
+        stor.add_data(data)
+        return (reg_id, name)
 
-    def make_farm_event(self, yaml_obj, source_file, name):
+    def make_farm_event(self, yaml_obj, source_file, obj_name):
         """yaml_obj : An YAML object we already know is an event.
            returns : The ID of the event sent, returned from FarmBot
 
@@ -503,38 +513,38 @@ class ActionHandler():
            with its name and ID to internal storage."""
 
         if "name" in yaml_obj:
-            changed, id = self.check_change(yaml_obj, name)
+            changed, id = self.check_change(yaml_obj, obj_name)
             if not changed:
-                return (id, name)
+                return (id, obj_name)
 
-            data = {"name" : name, "auto": 0, "kind" : "farm_event", "hash":hash(json.dumps(yaml_obj)), "children":[]}
-            script  = script + "\n  \"start_time\" : \"" + self.format_time(yaml_obj["start_time"]) + "\","
-            if "repeat_event" in yaml_obj:
-           # The following is a field in Farm Events:
-           # repeat_event: {every: default 1, unit = "minutes/hours/days/weeks/months/years", until: ???}
-                script = script + "\n  \"end_time\" : \"" + self.format_time(yaml_obj["repeat_event"]["until"]) + "\","
-                script = script + "\n  \"repeat\" : " + self.default_value(yaml_obj["repeat_event"], "every", source_file) + "\","
-                script = script + "\n  \"time_unit\" : \"" + yaml_obj["repeat_event"]["unit"] + "\","
+        data = {"name" : name, "auto": 0, "kind" : "farm_event", "hash":hash(json.dumps(yaml_obj)), "children":[]}
+        script  = script + "\n  \"start_time\" : \"" + self.format_time(yaml_obj["start_time"]) + "\","
+        if "repeat_event" in yaml_obj:
+            # The following is a field in Farm Events:
+            # repeat_event: {every: default 1, unit = "minutes/hours/days/weeks/months/years", until: ???}
+            script = script + "\n  \"end_time\" : \"" + self.format_time(yaml_obj["repeat_event"]["until"]) + "\","
+            script = script + "\n  \"repeat\" : " + self.default(yaml_obj["repeat_event"], "every", source_file) + "\","
+            script = script + "\n  \"time_unit\" : \"" + yaml_obj["repeat_event"]["unit"] + "\","
+        else:
+            script = script + "\n  \"time_unit\" : " + "\"never\","
+            script = script + "\n  \"repeat\" : " + "\"1\","
+        id = -1
+        n = ""
+        if "schedule" in yaml_obj:
+            id, n = self.make_regimen({"schedule" : yaml_obj["schedule"]}, source_file)
+            script = script + "\n  \"executable_type\" : " + "\"regimen\","
+        elif "actions" in yaml_obj:
+            if type(yaml_obj["actions"]) is not str:
+                id, n = self.make_sequence({"actions" : yaml_obj["actions"]}, source_file)
+                script = script + "\n  \"executable_type\" : " + "\"sequence\","
             else:
-               script = script + "\n  \"time_unit\" : " + "\"never\","
-               script = script + "\n  \"repeat\" : " + "\"1\","
-            id = -1
-            n = ""
-            if "schedule" in yaml_obj:
-                id, n = self.make_regimen({"schedule" : yaml_obj["schedule"]}, source_file)
-                script = script + "\n  \"executable_type\" : " + "\"regimen\","
-            elif "actions" in yaml_obj:
-                if type(yaml_obj["actions"]) is not str:
-                    id, n = self.make_sequence({"actions" : yaml_obj["actions"]}, source_file)
-                    script = script + "\n  \"executable_type\" : " + "\"sequence\","
-                else:
-                    id, type, n = self.obj_from_name(yaml_obj["actions"])
-                    script = script + "\n  \"executable_type\" : " + "\"" + type + "\","
-            script = script + "\n  \"executable_id\" : " + str(id) +  "\n  \"uuid\": "+name+"\n}"
-            data["children"].append(n)
-            event_id = http.get_id_back(json.load(script),name)
-            data["id"] = event_id
-            # When converting an int to a bool, the boolean value is True for all integers except 0.
-            # auto = false
-            stor.add_data(data)
-            return
+                id, type, n = self.obj_from_name(yaml_obj["actions"])
+                script = script + "\n  \"executable_type\" : " + "\"" + type + "\","
+        script = script + "\n  \"executable_id\" : " + str(id) +  "\n  \"uuid\": "+name+"\n}"
+        data["children"].append(n)
+        event_id = http.new_command(script,"farm_event")
+        data["id"] = event_id
+        # When converting an int to a bool, the boolean value is True for all integers except 0.
+        # auto = false
+        stor.add_data(data)
+        return (id, name)

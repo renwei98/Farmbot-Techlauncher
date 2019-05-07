@@ -26,19 +26,18 @@ def get_events():
 
 
 # Sends CeleryScript objects to FarmBot and returns the ID.
-def new_sequence(json_script, event_name: str, event_type: Event):  # TODO rename if sequence, regimen, event uses this
+def new_command(json_script, event_type: str):  # TODO rename if sequence, regimen, event uses this
     id = -1
-
-    if event_type == Event.FARM_EVENT:
+    if event_type == "farm_event":
         new_item = requests.post('https://my.farmbot.io/api/farm_events', headers=headers, json=json_script)
-        id = new_item.json()["id"]
-    elif event_type == Event.REGIMEN:
+        id = new_item.id
+    elif event_type == "regimen":
         new_item = requests.post('https://my.farmbot.io/api/regimens', headers=headers, json=json_script)
-        id = new_item.json()["id"]
-    elif event_type == Event.SEQUENCE:
+        id = new_item.id
+    elif event_type == "sequence":
         new_item = requests.post('https://my.farmbot.io/api/sequences', headers=headers, json=json_script)
         print(new_item)
-        id = new_item.json()["id"]
+        id = new_item.id
     return id
 
 

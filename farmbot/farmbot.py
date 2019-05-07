@@ -21,6 +21,8 @@ if args.delete:
             stor.delete_object(obj)
 if args.yaml_files:
     action_handler = read_commands.ActionHandler(args.yaml_files.split(','), args.map)
+    print(action_handler.load_commands())
+if False:
     print(action_handler.map)
     print(action_handler.parse_action(action={"move_rel": {"x": 10, "y": 10, "z": 10, "speed": 10, "x_off": 10, "y_off": 9, "z_off": 8}}, source_file="test_yaml.yaml"))
     print(action_handler.parse_action(action={"move_abs": {"x": 0, "y": 0}}, source_file="test_yaml.yaml"))

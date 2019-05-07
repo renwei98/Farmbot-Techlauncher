@@ -8,7 +8,7 @@ print(type(os.getenv("API_KEY")))
 headers = {'Authorization': 'Bearer ' + os.getenv("API_KEY"), 'content-type': 'application/json'}
 logs = requests.get('https://my.farmbot.io/api/logs', headers=headers)
 
-PATH = ".internal_storage/farmbot_commands.txt"
+PATH = "../.internal_data/farmbot_commands.yaml"
 
 
 # if there is already an object with the same *NAME* in internal storage
@@ -46,21 +46,25 @@ def unique_name():
 
 def check_exist(name):
     file = yaml.load(open(PATH,mode='r'))
-    for key in file:
-        if obj == name:
-            return (True, file[key]["id"])
-    return (False, -1, file[name]["hash"])
+    if file is None:
+        return (True, -1, -9)
+    elif name in file:
+        return (True, file[key]["id"], file[name]["hash"])
+    return (False, -1, -9)
 
 def delete_all():
     file = yaml.load(open(PATH,mode='r'))
-    for name in file:
-        http.delete_command(file[name]["id"], file[name]["kind"])
-        del file[name]
-    yaml.dump(file, open(PATH, 'w'))
+    if file is not None:
+        for name in file:
+            http.delete_command(file[name]["id"], file[name]["kind"])
+            del file[name]
+        yaml.dump(file, open(PATH, 'w'))
     return
 
 def delete_object(name):
     file = yaml.load(open(PATH,mode='r'))
+    if file is None:
+        return
     children = set()
     if "children" in file[name]:
         children = set(file[name]["children"])
