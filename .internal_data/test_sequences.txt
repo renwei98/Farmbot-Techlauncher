@@ -1,3 +1,0 @@
-testing:
-  name: "unique_name"
-  actions: []
