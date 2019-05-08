@@ -375,10 +375,10 @@ class ActionHandler():
         else:
             name = stor.unique_name()
 
-        script = script + "\n  \"name\": " + name + ","
+        script = script + "\n  \"name\": \"" + name + "\","
         data = {"name" : name, "auto": auto, "kind" : "sequence", "hash":hash(json.dumps(yaml_obj)), "children":[]}
 
-        script = script + "\n  \"body\": [ \n    {"
+        script = script + "\n  \"body\": [ \n    "
         actions = yaml_obj["actions"]
         if self.map is not None:
             with open(self.map, "r") as csv_file:
@@ -409,23 +409,24 @@ class ActionHandler():
                     # There is a map provided, but we don't need it.
                     for action in actions:
                         script = script + self.parse_action(action, source_file)
-                    script = script[0:-1] # Truncate off the last comma of the last action
-                    script = "\n      \"uuid\": " + name + "\n    }\n  ]\n}"
-                    # script = json.dumps(json.loads(script), indent="  ", sort_keys=False))
-            id = http.new_command(script, "sequence")
         else:
             # There is no map provided, and we assume we don't need one.
             for action in actions:
                 script = script + parse_action(action, source_file)
-            script = script[0:-1] # Truncate off the last comma of the last action
-            script = "\n      \"uuid\": " + name + "\n    }\n  ]\n}"
-            # script = json.dumps(json.loads(script), indent="  ", sort_keys=False))
-            id = http.new_command(script, "sequence")
+
+        script = script[:-1] # Truncate off the last comma of the last action
+        # script = script + "\n      \"uuid\": \"" + name + "\"\n    }\n  ]\n}"
+        script = script + "\n  ]\n}"
+        script = json.dumps(json.loads(script), indent="  ", sort_keys=False)
+
+        # file = open("celeryscript.txt",'a')
+        # file.write(script)
+        # file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
+        # file.close()
+
+        id = http.new_command(script, "sequence")
         data["id"] = id
         stor.add_data(data)
-        file = open("celeryscript.txt",'a')
-        file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
-        file.close()
 
         return (id, name)
 
@@ -446,7 +447,7 @@ class ActionHandler():
                 return (id, obj_name)
 
         script = "{"
-        script = script + "\n  \"color\": " + self.default(yaml_obj, "color", source_file) + ","
+        script = script + "\n  \"color\": \"" + self.default(yaml_obj, "color", source_file) + "\","
         name = ""
         auto = 1 # not-zero is true
         if obj_name is not None:
@@ -454,7 +455,7 @@ class ActionHandler():
             auto = 0 # zero is false
         else:
             name = stor.unique_name()
-        script = script + "\n  \"name\": " + name + ","
+        script = script + "\n  \"name\": \"" + name + "\","
         data = {"name" : name, "auto": auto, "kind" : "regimen", "hash":hash(json.dumps(yaml_obj)), "children":[]}
 
         list_of_sequences = [] # [(seq_id : , time_offsets : [])]
@@ -505,14 +506,18 @@ class ActionHandler():
                 script = script + "\n      \"time_offset\": " + offset + ","
                 script = script + "\n      \"sequence_id\": " + seq_id
                 script = script + "\n    },"
-            script = script[0:-1] # Truncate off the last comma of the last item
-            script = script + "\n  ], \n  \"uuid\": "+name+"\n}"
-        reg_id = http.new_command(script, "regimen")
-        data["id"] = reg_id
-        stor.add_data(data)
+        script = script[0:-1] # Truncate off the last comma of the last item
+        # script = script + "\n  ], \n  \"uuid\": \""+name+"\"\n}"
+        script = script + "\n  ]\n}"
+        script = json.dumps(json.loads(script), indent="  ", sort_keys=False)
+
         file = open("celeryscript.txt",'a')
         file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
         file.close()
+
+        reg_id = http.new_command(script, "regimen")
+        data["id"] = reg_id
+        stor.add_data(data)
 
         return (reg_id, name)
 
@@ -555,13 +560,15 @@ class ActionHandler():
                 script = script + "\n  \"executable_type\" : " + "\"" + type + "\","
         script = script + "\n  \"executable_id\" : " + str(id) +  "\n  \"uuid\": "+name+"\n}"
         data["children"].append(n)
+
+        file = open("celeryscript.txt",'a')
+        file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
+        file.close()
+
         event_id = http.new_command(script,"farm_event")
         data["id"] = event_id
         # When converting an int to a bool, the boolean value is True for all integers except 0.
         # auto = false
         stor.add_data(data)
-        file = open("celeryscript.txt",'a')
-        file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
-        file.close()
-        
+
         return (id, name)

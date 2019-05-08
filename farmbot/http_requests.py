@@ -30,14 +30,14 @@ def new_command(json_script, event_type: str):  # TODO rename if sequence, regim
     id = -1
     if event_type == "farm_event":
         new_item = requests.post('https://my.farmbot.io/api/farm_events', headers=headers, json=json_script)
-        id = new_item.id
+        id = new_item["id"]
     elif event_type == "regimen":
         new_item = requests.post('https://my.farmbot.io/api/regimens', headers=headers, json=json_script)
-        id = new_item.id
+        id = new_item["id"]
     elif event_type == "sequence":
         new_item = requests.post('https://my.farmbot.io/api/sequences', headers=headers, json=json_script)
         print(new_item)
-        id = new_item.id
+        id = new_item["id"]
     return id
 
 
