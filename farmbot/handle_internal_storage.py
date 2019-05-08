@@ -39,10 +39,14 @@ def unique_name():
     file = yaml.load(f)
     name = "auto_"
     index = 1
-    while True:
-        if (name+index) not in file:
-            name = name+index
-            break
+    if file is not None:
+        while True:
+            if (name+str(index)) not in file:
+                name = name+str(index)
+                break
+    else:
+        f.close()
+        return "auto_1"
     f.close()
     return name
 

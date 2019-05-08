@@ -9,6 +9,33 @@ class Event(Enum):
     SEQUENCE = 'sequence'
     FARM_EVENT = 'farm_event'
 
+example_script = """{
+  "name": "EXAMPLE SEQUENCE",
+  "body": [
+    {
+      "kind": "move_absolute",
+      "args": {
+        "location": {
+          "kind": "coordinate",
+          "args": {
+            "x": 1,
+            "y": 2,
+            "z": 3
+          }
+        },
+        "offset": {
+          "kind": "coordinate",
+          "args": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        },
+        "speed": 4
+      }
+    }
+  ]
+}"""
 
 load_dotenv()  # Add API_KEY to .env if not done already
 headers = {'Authorization': 'Bearer ' + os.getenv("API_KEY"), 'content-type': 'application/json'}
@@ -30,14 +57,14 @@ def new_command(json_script, event_type: str):  # TODO rename if sequence, regim
     id = -1
     if event_type == "farm_event":
         new_item = requests.post('https://my.farmbot.io/api/farm_events', headers=headers, json=json_script)
-        id = new_item["id"]
+        id = new_item.json()["id"]
     elif event_type == "regimen":
         new_item = requests.post('https://my.farmbot.io/api/regimens', headers=headers, json=json_script)
-        id = new_item["id"]
+        id = new_item.json()["id"]
     elif event_type == "sequence":
         new_item = requests.post('https://my.farmbot.io/api/sequences', headers=headers, json=json_script)
-        print(new_item)
-        id = new_item["id"]
+        print("\n",new_item.json(),"\n")
+        id = new_item.json()["id"]
     return id
 
 

@@ -1,0 +1,12 @@
+auto_1:
+  auto: 1
+  children: []
+  hash: -1625458127016500255
+  id: 19492
+  kind: sequence
+move_farmbot_1:
+  auto: 0
+  children: [auto_1]
+  hash: 8807759157642662788
+  id: 1757
+  kind: regimen

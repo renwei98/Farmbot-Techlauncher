@@ -94,7 +94,8 @@ class ActionHandler():
         """Modifies self.source_files, self.seq_script, and self.reg_script
            corrosponds to 'process_a_file' in the pseudocode"""
         for source in self.source_files:
-            file = yaml.load(open(source, "r"))
+            f = open(source, "r")
+            file = yaml.load(f)
             for name in file:
                 if "start_time" in file[name]:
                     self.make_farm_event(file[name], source, name)
@@ -106,7 +107,7 @@ class ActionHandler():
                     pass
                 else:
                     print("Invalid format for object:", name, source)
-            file.close()
+            f.close()
 
     def calc_time_offsets(self, schedule):
         """regimen : A yaml object that includes this:
@@ -237,7 +238,7 @@ class ActionHandler():
                 file = yaml.load(open(source, 'r'))
                 if action in file:
                     id, n = self.make_sequence(file[action], source, obj_name=action)
-                    script = script + "" # CELERYSCRIPT FOR SUB-SEQUENCE
+                    script = script + "{ \"kind\": \"execute\", \"args\": { \"sequence_id\": " + id + "} },"
                 file.close()
         elif "move_abs" in action:
             args = action["move_abs"]
@@ -248,8 +249,8 @@ class ActionHandler():
         elif "move_rel" in action:
             args = action["move_rel"]
             script = script + "{\"kind\":\"move_relative\","
-            script = script + "\"args\": {\"location\": " + self.parse_coord(coords=args,source_file=source_file)
-            script = script + "\"speed\": " + self.default(args, "speed",source_file) + "} },"
+            script = script + "\"args\": {\"x\" :" + str(args["x"]) + ",\"y\":" + str(args["y"]) + ",\"z\":" + str(self.default(args,"z",source_file))
+            script = script + ",\"speed\": " + self.default(args, "speed",source_file) + "} },"
         elif "find_home" in action:
             args = action["find_home"]
             if "all" in args or len(args)==0:
@@ -312,7 +313,7 @@ class ActionHandler():
                 script = script + "\"args\": {\"sequence_id\": " + self.default(action, "sequence_id",source_file) +"\"," + " } },"
 
         else:
-            raise Exception("The action " + action + " is undefined.")
+            raise Exception("The action " + action.keys()[0] + " is undefined.")
         return script
 
     import operator
@@ -376,7 +377,7 @@ class ActionHandler():
             name = stor.unique_name()
 
         script = script + "\n  \"name\": \"" + name + "\","
-        data = {"name" : name, "auto": auto, "kind" : "sequence", "hash":hash(json.dumps(yaml_obj)), "children":[]}
+        data = {name : {"auto": auto, "kind" : "sequence", "hash":hash(json.dumps(yaml_obj)), "children":[] }}
 
         script = script + "\n  \"body\": [ \n    "
         actions = yaml_obj["actions"]
@@ -417,15 +418,16 @@ class ActionHandler():
         script = script[:-1] # Truncate off the last comma of the last action
         # script = script + "\n      \"uuid\": \"" + name + "\"\n    }\n  ]\n}"
         script = script + "\n  ]\n}"
-        script = json.dumps(json.loads(script), indent="  ", sort_keys=False)
+        # script = json.dumps(json.loads(script), indent="  ", sort_keys=False)
 
-        # file = open("celeryscript.txt",'a')
-        # file.write(script)
+        file = open("celeryscript.txt",'a')
+        file.write(script)
         # file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
-        # file.close()
+        file.close()
+        # print("\n",type(json.loads(script)),"\n")
 
-        id = http.new_command(script, "sequence")
-        data["id"] = id
+        id = http.new_command(json.loads(script), "sequence")
+        data[name]["id"] = id
         stor.add_data(data)
 
         return (id, name)
@@ -456,7 +458,7 @@ class ActionHandler():
         else:
             name = stor.unique_name()
         script = script + "\n  \"name\": \"" + name + "\","
-        data = {"name" : name, "auto": auto, "kind" : "regimen", "hash":hash(json.dumps(yaml_obj)), "children":[]}
+        data = {name : {"auto": auto, "kind" : "regimen", "hash":hash(json.dumps(yaml_obj)), "children":[]}}
 
         list_of_sequences = [] # [(seq_id : , time_offsets : [])]
 
@@ -474,13 +476,13 @@ class ActionHandler():
                 send_this["groups"] = sequence["groups"]
             if "types" in sequence:
                 send_this["types"] = sequence["types"]
-            id = -1
+            seq_id = -1
             n = ""
             if type(sequence["actions"]) is not str:
                 # If the actions in the regimen is a list,
                 # and we need to generate the sequence ourselves.
                 send_this["actions"] = sequence["actions"]
-                id, n = self.make_sequence(send_this, source_file)
+                seq_id, n = self.make_sequence(send_this, source_file)
             else:
                 # If the sequence refers to a sequence defined elsewhere by the user,
                 # and we need to find it.
@@ -490,12 +492,12 @@ class ActionHandler():
                     file = yaml.load(f)
                     if looking_for in file:
                         send_this["actions"] = file[n]["actions"]
-                        id, n = self.make_sequence(send_this, source_file, obj_name=looking_for)
+                        seq_id, n = self.make_sequence(send_this, source_file, obj_name=looking_for)
                         f.close()
                         break
                     f.close()
-            data["children"].append(n)
-            list_of_sequences.append({"id":sequence_id,"time_offsets": self.calc_time_offsets(sequence)})
+            data[name]["children"].append(n)
+            list_of_sequences.append({"id":seq_id,"time_offsets": self.calc_time_offsets(sequence)})
             # Format all the sequences and their times for the regimen
         script = script + "\n  \"regimen_items\": [ "
         for sequence in list_of_sequences:
@@ -503,20 +505,21 @@ class ActionHandler():
             seq_id = sequence["id"]
             for offset in time_offsets:
                 script = script + "\n    {"
-                script = script + "\n      \"time_offset\": " + offset + ","
-                script = script + "\n      \"sequence_id\": " + seq_id
+                script = script + "\n      \"time_offset\": " + str(offset) + ","
+                script = script + "\n      \"sequence_id\": " + str(seq_id)
                 script = script + "\n    },"
         script = script[0:-1] # Truncate off the last comma of the last item
         # script = script + "\n  ], \n  \"uuid\": \""+name+"\"\n}"
         script = script + "\n  ]\n}"
-        script = json.dumps(json.loads(script), indent="  ", sort_keys=False)
+        # script = json.dumps(json.loads(script), indent="  ", sort_keys=False)
 
         file = open("celeryscript.txt",'a')
-        file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
+        # file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
+        file.write(script)
         file.close()
 
-        reg_id = http.new_command(script, "regimen")
-        data["id"] = reg_id
+        reg_id = http.new_command(json.loads(script), "regimen")
+        data[name]["id"] = reg_id
         stor.add_data(data)
 
         return (reg_id, name)
@@ -535,7 +538,7 @@ class ActionHandler():
             if not changed:
                 return (id, obj_name)
 
-        data = {"name" : name, "auto": 0, "kind" : "farm_event", "hash":hash(json.dumps(yaml_obj)), "children":[]}
+        data = {name : {"auto": 0, "kind" : "farm_event", "hash":hash(json.dumps(yaml_obj)), "children":[]}}
         script  = script + "\n  \"start_time\" : \"" + self.format_time(yaml_obj["start_time"]) + "\","
         if "repeat_event" in yaml_obj:
             # The following is a field in Farm Events:
@@ -559,14 +562,14 @@ class ActionHandler():
                 id, type, n = self.obj_from_name(yaml_obj["actions"])
                 script = script + "\n  \"executable_type\" : " + "\"" + type + "\","
         script = script + "\n  \"executable_id\" : " + str(id) +  "\n  \"uuid\": "+name+"\n}"
-        data["children"].append(n)
+        data[name]["children"].append(n)
 
         file = open("celeryscript.txt",'a')
         file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
         file.close()
 
-        event_id = http.new_command(script,"farm_event")
-        data["id"] = event_id
+        event_id = http.new_command(json.loads(script),"farm_event")
+        data[name]["id"] = event_id
         # When converting an int to a bool, the boolean value is True for all integers except 0.
         # auto = false
         stor.add_data(data)
