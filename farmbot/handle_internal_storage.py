@@ -35,34 +35,43 @@ PATH = "../.internal_data/farmbot_commands.yaml"
 # that have it as a child, and update all "auto"==True objects that have it as its parent.
 
 def unique_name():
-    file = yaml.load(open(PATH,mode='r'))
+    f = open(PATH,mode='r')
+    file = yaml.load(f)
     name = "auto_"
     index = 1
     while True:
         if (name+index) not in file:
             name = name+index
             break
+    f.close()
     return name
 
 def check_exist(name):
-    file = yaml.load(open(PATH,mode='r'))
+    f = open(PATH,mode='r')
+    file = yaml.load(f)
     if file is None:
+        f.close()
         return (True, -1, -9)
     elif name in file:
+        f.close()
         return (True, file[key]["id"], file[name]["hash"])
+    f.close()
     return (False, -1, -9)
 
 def delete_all():
-    file = yaml.load(open(PATH,mode='r'))
+    f = open(PATH,mode='r+')
+    file = yaml.load(f)
     if file is not None:
         for name in file:
             http.delete_command(file[name]["id"], file[name]["kind"])
             del file[name]
-        yaml.dump(file, open(PATH, 'w'))
+        yaml.dump(file, f)
+        f.close()
     return
 
 def delete_object(name):
-    file = yaml.load(open(PATH,mode='r'))
+    f = open(PATH,mode='r+')
+    file = yaml.load(f)
     if file is None:
         return
     children = set()
@@ -70,26 +79,31 @@ def delete_object(name):
         children = set(file[name]["children"])
     http.delete_command(file[name]["id"], file[name]["kind"])
     del file[name]
-    yaml.dump(file, open(PATH, 'w'))
+    yaml.dump(file, f)
+    f.close()
     for child in children:
         delete_outdated(child)
     return
 
 def delete_outdated(name):
-    file = yaml.load(open(PATH,mode='r'))
+    f = open(PATH,mode='r+')
+    file = yaml.load(f)
     if file[name]["auto"]:
         children = set()
         if "children" in file[name]:
             children = set(file[name]["children"])
         http.delete_command(file[name]["id"], file[name]["kind"])
         del file[name]
-        yaml.dump(file, open(PATH, 'w'))
+        yaml.dump(file, f)
+        f.close()
         for child in children:
             delete_outdated(child)
     return
 
 def add_data(data):
-    yaml.dump(data, open(PATH, 'a'))
+    f = open(PATH, 'a')
+    yaml.dump(data, f)
+    f.close()
     return
 
 

@@ -106,6 +106,7 @@ class ActionHandler():
                     pass
                 else:
                     print("Invalid format for object:", name, source)
+            file.close()
 
     def calc_time_offsets(self, schedule):
         """regimen : A yaml object that includes this:
@@ -237,6 +238,7 @@ class ActionHandler():
                 if action in file:
                     id, n = self.make_sequence(file[action], source, obj_name=action)
                     script = script + "" # CELERYSCRIPT FOR SUB-SEQUENCE
+                file.close()
         elif "move_abs" in action:
             args = action["move_abs"]
             script = script + "{\"kind\":\"move_absolute\","
@@ -339,7 +341,9 @@ class ActionHandler():
                             if child in file:
                                 if self.check_change(file[name], child):
                                     stor.delete_object(name)
+                                    file.close()
                                     return (True, id)
+                            file.close()
                 return (False, id)
             else: # Already exists in storage and has changed
                 stor.delete_object(name)
@@ -419,7 +423,9 @@ class ActionHandler():
             id = http.new_command(script, "sequence")
         data["id"] = id
         stor.add_data(data)
-        print(script)
+        file = open("celeryscript.txt",'a')
+        file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
+        file.close()
 
         return (id, name)
 
@@ -479,11 +485,14 @@ class ActionHandler():
                 # and we need to find it.
                 looking_for = sequence["actions"]
                 for file_name in self.source_files:
-                    file = yaml.load(open(file_name, 'r'))
+                    f = open(file_name, 'r')
+                    file = yaml.load(f)
                     if looking_for in file:
                         send_this["actions"] = file[n]["actions"]
                         id, n = self.make_sequence(send_this, source_file, obj_name=looking_for)
+                        f.close()
                         break
+                    f.close()
             data["children"].append(n)
             list_of_sequences.append({"id":sequence_id,"time_offsets": self.calc_time_offsets(sequence)})
             # Format all the sequences and their times for the regimen
@@ -501,6 +510,10 @@ class ActionHandler():
         reg_id = http.new_command(script, "regimen")
         data["id"] = reg_id
         stor.add_data(data)
+        file = open("celeryscript.txt",'a')
+        file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
+        file.close()
+
         return (reg_id, name)
 
     def make_farm_event(self, yaml_obj, source_file, obj_name):
@@ -547,4 +560,8 @@ class ActionHandler():
         # When converting an int to a bool, the boolean value is True for all integers except 0.
         # auto = false
         stor.add_data(data)
+        file = open("celeryscript.txt",'a')
+        file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
+        file.close()
+        
         return (id, name)
