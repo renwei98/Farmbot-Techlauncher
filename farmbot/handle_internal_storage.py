@@ -35,7 +35,7 @@ PATH = "../.internal_data/farmbot_commands.yaml"
 # that have it as a child, and update all "auto"==True objects that have it as its parent.
 
 def unique_name():
-    f = open(PATH,mode='r')
+    f = open(PATH, mode='r')
     file = yaml.load(f)
     name = "auto_"
     index = 1
@@ -50,20 +50,22 @@ def unique_name():
     f.close()
     return name
 
+
 def check_exist(name):
     f = open(PATH,mode='r')
     file = yaml.load(f)
     if file is None:
         f.close()
-        return (True, -1, -9)
+        return True, -1, -9
     elif name in file:
         f.close()
         return (True, file[key]["id"], file[name]["hash"])
     f.close()
-    return (False, -1, -9)
+    return False, -1, -9
+
 
 def delete_all():
-    f = open(PATH,mode='r+')
+    f = open(PATH, mode='r+')
     file = yaml.load(f)
     if file is not None:
         for name in file:
@@ -73,8 +75,9 @@ def delete_all():
         f.close()
     return
 
+
 def delete_object(name):
-    f = open(PATH,mode='r+')
+    f = open(PATH, mode='r+')
     file = yaml.load(f)
     if file is None:
         return
@@ -89,8 +92,9 @@ def delete_object(name):
         delete_outdated(child)
     return
 
+
 def delete_outdated(name):
-    f = open(PATH,mode='r+')
+    f = open(PATH, mode='r+')
     file = yaml.load(f)
     if file[name]["auto"]:
         children = set()
@@ -104,12 +108,12 @@ def delete_outdated(name):
             delete_outdated(child)
     return
 
+
 def add_data(data):
     f = open(PATH, 'a')
     yaml.dump(data, f)
     f.close()
     return
-
 
 
 def check_seq_id(num):
@@ -120,10 +124,11 @@ def check_seq_id(num):
          else:
              return False
 
+
 def check_reg_id(num):
     for k, v in data["YAML Regimens"].items():
-         reg_ids.append(data["YAML Regimens"][k]["id"])
-         if num in reg_ids:
-             return True
-         else:
-             return False
+        reg_ids.append(data["YAML Regimens"][k]["id"])
+        if num in reg_ids:
+            return True
+        else:
+            return False

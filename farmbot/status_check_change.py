@@ -1,7 +1,6 @@
 import paho.mqtt.client as mqtt
 import logging
-import api_token_gen
-
+from util import api_token_gen
 
 def subscribe_topics(client,topics,qos=0):
    print("topic ",topics,"  ",qos)
