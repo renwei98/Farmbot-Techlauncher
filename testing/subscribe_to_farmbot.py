@@ -1,5 +1,5 @@
 import paho.mqtt.client as mqtt
-import api_token_gen
+from util import api_token_gen
 
 device_id = api_token_gen.token_data['token']['unencoded']['bot']
 token = api_token_gen.token_data['token']['encoded']

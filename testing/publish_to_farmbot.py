@@ -1,6 +1,7 @@
 import json
 import paho.mqtt.publish as publish
-import api_token_gen
+from util import api_token_gen
+
 # from read_commands import ActionHandler
 
 device_id = api_token_gen.token_data['token']['unencoded']['bot']

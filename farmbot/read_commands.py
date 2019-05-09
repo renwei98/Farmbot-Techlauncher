@@ -3,25 +3,21 @@
 
 import yaml
 import csv
-
 import json
 import http_requests as http
-import datetime
-from time import timezone
 import handle_internal_storage as stor
+import util.time_calculator as time_calculator
 
-# device_id = api_token_gen.token_data['token']['unencoded']['bot']
-# mqtt_host = api_token_gen.token_data['token']['unencoded']['mqtt']
-# token = api_token_gen.token_data['token']['encoded']
 
-class ActionHandler():
+class ActionHandler:
     PATH = "../.internal_data/farmbot_commands.yaml"
+
     def __init__(self, yaml_file_names, csv_file_name=None):
         """yaml_file_names  : a list of YAML files
            csv_file_names   : a list of CSV files holding map coordinates"""
-        self.source_files = {} # {file : {pin_aliases : {alias : PIN}}}
+        self.source_files = {}  # {file : {pin_aliases : {alias : PIN}}}
         self.map = csv_file_name
-        self.settings = (1, 50, 0, 0, 0, 0) #scale, speed, z, x_offset, y_offset, z_offset
+        self.settings = (1, 50, 0, 0, 0, 0)  # scale, speed, z, x_offset, y_offset, z_offset
         self.get_defaults(yaml_file_names)
         # self.load_actions()
 
@@ -66,8 +62,8 @@ class ActionHandler():
                     self.source_files[file_name]["z_off"] = file["options"]["default_z_offset"]
                 else:
                     self.source_files[file_name]["z_off"] = 0
-            if "other_files" in file["options"]: # aka it refers to other files
-                    sources.union(set(file["options"]["other_files"]))
+            if "other_files" in file["options"]:  # aka it refers to other files
+                sources.union(set(file["options"]["other_files"]))
 
     def obj_from_name(self, name):
         """name : the name of a YAML object
@@ -80,11 +76,11 @@ class ActionHandler():
             if name in file:
                 if "schedule" in file[name]:
                     id, name = self.make_regimen(file[name], file_name, name)
-                    return (id, "regimen", name)
+                    return id, "regimen", name
                 elif "actions" in file[name]:
                     if file[name["actions"]] is not str:
                         id, name = self.make_sequence(file[name], file_name, name)
-                        return (id, "sequence", name)
+                        return id, "sequence", name
                     else:
                         return self.obj_from_name(file[name["actions"]])
                 else:
@@ -103,58 +99,11 @@ class ActionHandler():
                     print(self.make_regimen(file[name], source, obj_name=name))
                 elif "actions" in file[name]:
                     print(self.make_sequence(file[name], source, obj_name=name))
-                elif name=="options":
+                elif name == "options":
                     pass
                 else:
                     print("Invalid format for object:", name, source)
             f.close()
-
-    def calc_time_offsets(self, schedule):
-        """regimen : A yaml object that includes this:
-           schedule: {group: [optional], type: [optional], days: [], times: [], actions: <<list of actions or name of sequence>>}
-           OR
-           schedule: {group: [optional], type: [optional], every: 4, unit: "minutes/hours/days/weeks/months/years", max: 10, actions: <<list of actions or name of sequence>>}
-           returns : a list of integers that are time_offset(s) for CeleryScript"""
-        time_offsets = []
-        if "days" in schedule:
-            days = schedule["days"]
-            times = []
-            for time in schedule["times"]:
-                times.append(int(time[0:2])*60*60*1000 + int(time[3:])*60*1000)
-            now = datetime.datetime.now()
-            for day in days:
-                begin = (day - 1) * 24*60*60*1000
-                for time in times:
-                    time_offsets.append(begin+time)
-        elif "every" in schedule:
-            every = schedule["every"]
-            unit = schedule["unit"]
-            period = 0
-            if unit == "minutes":
-                period = every*60*1000
-            elif unit == "hours":
-                period = every*60*60*1000
-            elif unit == "days":
-                period = every*24*60*60*1000
-            elif unit == "weeks":
-                period = every*7*24*60*60*1000
-            elif unit == "months":
-                period = every*30*24*60*60*1000
-            elif unit == "years":
-                period = every*365*24*60*60*1000
-            for i in range(0,schedule["max"]):
-                time_offsets.append(i*period)
-        return time_offsets
-
-    def format_time(self, time):
-        """time: DD/MM/YYYY 23:00
-           returns: YYYY-MM-DDT23:00:00.000Z aka ISO 8601 date representation, local time."""
-        string = time[6:10]+"-"+time[3:5]+"-"+time[0:2]+"T"+time[11:]+":00"
-        tz = int(timezone / 3600.0)
-        if (tz < 0):
-            return string + str(tz) + ":00"
-        else:
-            return string + "+" + str(tz) + ":00"
 
     def default(self, yaml_obj, field, source_file):
         if field == "color":
@@ -214,8 +163,8 @@ class ActionHandler():
         if row is not None:
             # If we are supposed to move to the location of a plant, defined by a CSV row which may have no "z" provided.
             scale = self.source_files[source_file]["scale"]
-            script = "{\"kind\": \"coordinate\",\"args\": {\"x\": "+ str(int(row["x"])*scale) + ",\"y\": " + str(int(row["y"])*scale) + ",\"z\": "
-            if row["z"].strip()!="":
+            script = "{\"kind\": \"coordinate\",\"args\": {\"x\": " + str(int(row["x"])*scale) + ",\"y\": " + str(int(row["y"])*scale) + ",\"z\": "
+            if row["z"].strip() != "":
                 script = script + str(int(row["z"])*scale) + "} },"
             else:
                 script = script + str(self.default({},"z", source_file)*scale) + "} },"
@@ -228,8 +177,7 @@ class ActionHandler():
             else:
                 return "{\"kind\": \"coordinate\",\"args\": {\"x\": "+ str(self.default(coords,"x_off",source_file)*scale) + ",\"y\": " + str(self.default(coords,"y_off",source_file)*scale) + ",\"z\": " + str(self.default(coords,"z_off",source_file)*scale) + "} },"
 
-
-    def parse_action(self,action, source_file, row=None):
+    def parse_action(self, action, source_file, row=None):
         # The row is only needed for the action to_self
         script = ""
         if action is str:
@@ -253,7 +201,7 @@ class ActionHandler():
             script = script + ",\"speed\": " + self.default(args, "speed",source_file) + "} },"
         elif "find_home" in action:
             args = action["find_home"]
-            if "all" in args or len(args)==0:
+            if "all" in args or len(args) == 0:
                 script = script + "{\"kind\":\"find_home\",{\"args\": { \"axis\": "
                 script = script + "\"all\","
                 script = script + "\"speed\": " + self.default(args, "speed",source_file) + "} },"
@@ -268,8 +216,8 @@ class ActionHandler():
             args = action["read_pin"]
             script = script + "{\"kind\": \"read_pin\", \"args\": { "
             if "label" in args:
-                script = script + "\"label\": \""+ args["label"] +"\","
-            script = script + "\"pin_number\": \""+ self.pin_name(args["pin"], source_file) +"\", \"pin_mode\": \""+ args["mode"] + "\" } },"
+                script = script + "\"label\": \""+ args["label"] + "\","
+            script = script + "\"pin_number\": \""+ self.pin_name(args["pin"], source_file) + "\", \"pin_mode\": \"" + args["mode"] + "\" } },"
         elif "write_pin" in action:
             args = action["write_pin"]
             script = script + "{\"kind\": \"write_pin\", \"args\": { "
@@ -420,7 +368,7 @@ class ActionHandler():
         script = script + "\n  ]\n}"
         # script = json.dumps(json.loads(script), indent="  ", sort_keys=False)
 
-        file = open("celeryscript.txt",'a')
+        file = open("../data/celeryscript.txt", 'a')
         file.write(script)
         # file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
         file.close()
@@ -497,7 +445,7 @@ class ActionHandler():
                         break
                     f.close()
             data[name]["children"].append(n)
-            list_of_sequences.append({"id":seq_id,"time_offsets": self.calc_time_offsets(sequence)})
+            list_of_sequences.append({"id":seq_id,"time_offsets": time_calculator.calc_time_offsets(sequence)})
             # Format all the sequences and their times for the regimen
         script = script + "\n  \"regimen_items\": [ "
         for sequence in list_of_sequences:
@@ -539,11 +487,11 @@ class ActionHandler():
                 return (id, obj_name)
 
         data = {name : {"auto": 0, "kind" : "farm_event", "hash":hash(json.dumps(yaml_obj)), "children":[]}}
-        script  = script + "\n  \"start_time\" : \"" + self.format_time(yaml_obj["start_time"]) + "\","
+        script  = script + "\n  \"start_time\" : \"" + time_calculator.format_time(yaml_obj["start_time"]) + "\","
         if "repeat_event" in yaml_obj:
             # The following is a field in Farm Events:
             # repeat_event: {every: default 1, unit = "minutes/hours/days/weeks/months/years", until: ???}
-            script = script + "\n  \"end_time\" : \"" + self.format_time(yaml_obj["repeat_event"]["until"]) + "\","
+            script = script + "\n  \"end_time\" : \"" + time_calculator.format_time(yaml_obj["repeat_event"]["until"]) + "\","
             script = script + "\n  \"repeat\" : " + self.default(yaml_obj["repeat_event"], "every", source_file) + "\","
             script = script + "\n  \"time_unit\" : \"" + yaml_obj["repeat_event"]["unit"] + "\","
         else:
