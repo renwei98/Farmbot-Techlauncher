@@ -5,8 +5,10 @@
 <a href = "#Title2"><b> 2. Project Administration </b></a><br/>
 <a href = "#Title3"><b> 3. Documentation </b></a><br/> 
 <a href = "#Title4"><b> 4. UML Diagram </b></a><br/>
-<a href = "#Title4"><b> 5. Current Progress </b></a><br/>
-<a href = "#Title5"><b> 6. Technical Tools and Constraints </b></a>
+<a href = "#Title5"><b> 5. Current Progress </b></a><br/>
+<a href = "#Title6"><b> 6. Technical Tools and Constraints </b></a><br/>
+<a href = "#Title7"><b> 7. User Manual</b></a>
+
 
 <br />
 <h2><a name = "Title1"> 1. Project Overview </a></h2>
@@ -123,3 +125,22 @@ Phase 4: Finalizing beta version and demonstrating functionality, developing han
 * Constraints:
     * Some testing has to be done on site with physical machines
     * Python is the preferred language
+    
+<br />
+<h2><a name = "Title7"> 7. User Manual</a></h2>
+In "data" folder: 
+"celeryscript.txt" - CeleryScript nodes are specially formatted JSON documents. FarmBot uses these documents for a variety of storage and communication use cases and also as an internal programming language for sequence scripting.
+"pseudocode.pdf" - Pseudo code for what to do with YAML file.
+"test.csv" - Our test CSV file used to test all our codes.
+"test_yaml.yaml" - Our test YAML file.
+
+In "farmbot" folder: 
+"farmbot.py" - 
+"handle_internal_storage.py" - Handle the storage on local machine which store and read storage and delete if already sent to Farmbot and trigger delete data on Farmbot.
+"hash_csv.py" - Assign hash value to current CSV.
+"http_requests.py" - Get all sequences currently on Farmbot, sends CeleryScript objects to FarmBot and returns the ID, and delete something on Farmbot.
+"read_commands.py" - Handles translating YAML into CeleryScript for both Sequences and Regimens.
+"status_check_change.py" - 
+
+In "testing" folder:
+
