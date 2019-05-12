@@ -9,7 +9,8 @@ import http_requests as http
 import datetime
 from time import timezone
 import handle_internal_storage as stor
-
+from hashlib import sha224
+import datetime
 # device_id = api_token_gen.token_data['token']['unencoded']['bot']
 # mqtt_host = api_token_gen.token_data['token']['unencoded']['mqtt']
 # token = api_token_gen.token_data['token']['encoded']
@@ -31,7 +32,7 @@ class ActionHandler():
             file = yaml.load(open(file_name, 'r'))
             self.source_files[file_name] = {}
             self.source_files[file_name]["pin_aliases"] = {}
-            if "options" in file:
+            if file["options"] is not None and "options" in file:
                 if "pin_aliases" in file["options"]:
                     for alias, pin in file["options"]["pin_aliases"].items():
                         self.source_files[file_name]["pin_aliases"][alias] = pin
@@ -66,7 +67,7 @@ class ActionHandler():
                     self.source_files[file_name]["z_off"] = file["options"]["default_z_offset"]
                 else:
                     self.source_files[file_name]["z_off"] = 0
-            if "other_files" in file["options"]: # aka it refers to other files
+            if file["options"] is not None and "other_files" in file["options"]: # aka it refers to other files
                     sources.union(set(file["options"]["other_files"]))
 
     def obj_from_name(self, name):
@@ -79,12 +80,12 @@ class ActionHandler():
             file = yaml.load(open(file_name))
             if name in file:
                 if "schedule" in file[name]:
-                    id, name = self.make_regimen(file[name], file_name, name)
-                    return (id, "regimen", name)
+                    id, name, this_needs_csv = self.make_regimen(file[name], file_name, name)
+                    return (id, "regimen", name, this_needs_csv)
                 elif "actions" in file[name]:
                     if file[name["actions"]] is not str:
-                        id, name = self.make_sequence(file[name], file_name, name)
-                        return (id, "sequence", name)
+                        id, name, this_needs_csv = self.make_sequence(file[name], file_name, name)
+                        return (id, "sequence", name, this_needs_csv)
                     else:
                         return self.obj_from_name(file[name["actions"]])
                 else:
@@ -103,10 +104,8 @@ class ActionHandler():
                     print(self.make_regimen(file[name], source, obj_name=name))
                 elif "actions" in file[name]:
                     print(self.make_sequence(file[name], source, obj_name=name))
-                elif name=="options":
-                    pass
                 else:
-                    print("Invalid format for object:", name, source)
+                    pass
             f.close()
 
     def calc_time_offsets(self, schedule):
@@ -150,11 +149,12 @@ class ActionHandler():
         """time: DD/MM/YYYY 23:00
            returns: YYYY-MM-DDT23:00:00.000Z aka ISO 8601 date representation, local time."""
         string = time[6:10]+"-"+time[3:5]+"-"+time[0:2]+"T"+time[11:]+":00"
-        tz = int(timezone / 3600.0)
-        if (tz < 0):
-            return string + str(tz) + ":00"
-        else:
-            return string + "+" + str(tz) + ":00"
+        # tz = datetime.datetime.utcnow().isoformat()
+        # print("\n tz type", type(tz))
+        # print("\n", tz, "\n")
+        # print("\n time " + string + tz[19:] + "\n")
+        return string
+
 
     def default(self, yaml_obj, field, source_file):
         if field == "color":
@@ -164,7 +164,7 @@ class ActionHandler():
                 return "gray"
         elif field == "every":
             if "every" in yaml_obj:
-                return yaml_obj["every"]
+                return str(yaml_obj["every"])
             else:
                 return str(1)
         elif field == "speed":
@@ -195,17 +195,50 @@ class ActionHandler():
                 return int(self.source_files[source_file]["z_off"])
 
     def translate(self, yaml_obj, field):
-        if field == "time_unit":
+        if field == "every":
             if yaml_obj["unit"] == "days":
                 return "daily"
             else:
                 return yaml_obj["unit"][0:-1] + "ly"
+        elif field == "digi_ana":
+            if yaml_obj["mode"] == "D":
+                return "0"
+            else:
+                return "1"
+        elif field == "pin_value":
+            if yaml_obj["value"] == "OFF":
+                return "0"
+            elif yaml_obj["value"] == "ON":
+                return "1"
+            else:
+                return yaml_obj["value"]
+        elif field == "peri_sens":
+            if yaml_obj == "p":
+                return "\"Peripheral\""
+            elif yaml_obj == "s":
+                return "\"Sensor\""
+            else:
+                print("error 924")
+        elif field == "condition":
+            if yaml_obj == "=":
+                return "\"is\""
+            elif yaml_obj == "<":
+                return "\"<\""
+            elif yaml_obj == ">":
+                return "\">\""
+            elif yaml_obj == "!=":
+                return "\"not\""
+            else:
+                print("error 324")
 
     def pin_name(self, pin, source_file):
         if pin in self.source_files[source_file]["pin_aliases"]:
-            return self.source_files[source_file]["pin_aliases"][pin]
+            args = self.source_files[source_file]["pin_aliases"][pin]
+            script = "{kind: \"named_pin\", args: { pin_id:" + str(args[0], "peri_sens")
+            script = script + ", pin_type: \"" + self.translate(args[1], "peri_sens") + "\" } },"
+            return script
         else:
-            return pin
+            return str(pin)
 
     def parse_coord(self, coords=None,row=None, source_file=None):
         """coords = {x:0, y:0, z:0} or {x_off:0, y_off:0, z_off:0}
@@ -232,14 +265,16 @@ class ActionHandler():
     def parse_action(self,action, source_file, row=None):
         # The row is only needed for the action to_self
         script = ""
-        if action is str:
+        if type(action) is str:
             # This means the action is actually another sequence
             for source in self.source_files:
-                file = yaml.load(open(source, 'r'))
+                f = open(source, 'r')
+                file = yaml.load(f)
+                f.close()
                 if action in file:
-                    id, n = self.make_sequence(file[action], source, obj_name=action)
-                    script = script + "{ \"kind\": \"execute\", \"args\": { \"sequence_id\": " + id + "} },"
-                file.close()
+                    id, n, child_needs_csv = self.make_sequence(file[action], source, obj_name=action)
+                    script = script + "{ \"kind\": \"execute\", \"args\": { \"sequence_id\": " + str(id) + "} },"
+                return (script, n, child_needs_csv)
         elif "move_abs" in action:
             args = action["move_abs"]
             script = script + "{\"kind\":\"move_absolute\","
@@ -254,12 +289,12 @@ class ActionHandler():
         elif "find_home" in action:
             args = action["find_home"]
             if "all" in args or len(args)==0:
-                script = script + "{\"kind\":\"find_home\",{\"args\": { \"axis\": "
+                script = script + "{\"kind\":\"find_home\",\"args\": { \"axis\": "
                 script = script + "\"all\","
                 script = script + "\"speed\": " + self.default(args, "speed",source_file) + "} },"
             else:
                 for coord in args:
-                    script = script + "{\"kind\":\"find_home\",{\"args\": { \"axis\": "
+                    script = script + "{\"kind\":\"find_home\",\"args\": { \"axis\": "
                     script = script + "\""+coord+"\","
                     script = script + "\"speed\": " + self.default(args, "speed",source_file) + "} },"
         elif "wait" in action:
@@ -269,12 +304,12 @@ class ActionHandler():
             script = script + "{\"kind\": \"read_pin\", \"args\": { "
             if "label" in args:
                 script = script + "\"label\": \""+ args["label"] +"\","
-            script = script + "\"pin_number\": \""+ self.pin_name(args["pin"], source_file) +"\", \"pin_mode\": \""+ args["mode"] + "\" } },"
+            script = script + "\"pin_number\": "+ self.pin_name(args["pin"], source_file) +", \"pin_mode\": "+ self.translate(args, "digi_ana") + " } },"
         elif "write_pin" in action:
             args = action["write_pin"]
             script = script + "{\"kind\": \"write_pin\", \"args\": { "
-            script = script + "\"pin_mode\": \""+ args["mode"] +"\","
-            script = script + "\"pin_number\": \""+ self.pin_name(args["pin"], source_file) +"\"," + "\"pin_value\": \""+ args["value"] + "\" } },"
+            script = script + "\"pin_mode\": "+ self.translate(args, "digi_ana") +","
+            script = script + "\"pin_number\": "+ self.pin_name(args["pin"], source_file) +", \"pin_value\": "+ str(self.translate(args, "pin_value")) + " } },"
             # Note, I'm not sure if the pin_value for Digital mode can be a string or if it must be an integer
         elif "to_self" in action:
             args = action["to_self"]
@@ -296,61 +331,107 @@ class ActionHandler():
             except:
                 raise Exception("A \"to_plant\" command requires a CSV file.")
         elif "if" in action:
-            script = script + "{\"kind\":\"_if\","
-            script = script + "\"args\": {\"lhs\": "+ self.pin_name(args["pin"],source_file)+"\"," "\"op\": \""+ operator +"\"," "\"rhs\": \""+ action["value"] +"\","
-            script = script + "\"_then\": { "
-            if parse_operator(operator)(self.pin_name(args["pin"],source_file), action["value"]):
-                script = script + "{\"kind\":\"execute\","
-                script = script + "\"args\": {\"sequence_id\": " + self.default(action, "sequence_id",source_file) +"\"," + " } },"
-                script = script + "\"_else\": { "
-                script = script + "{\"kind\":\"nothing\","
-                script = script + "\"args\": { " + "\"," + " } } } }"
-            else:
-                script = script + "{\"kind\":\"nothing\","
-                script = script + "\"args\": { " +"\"," + " } },"
-                script = script + "\"_else\": { "
-                script = script + "{\"kind\":\"execute\","
-                script = script + "\"args\": {\"sequence_id\": " + self.default(action, "sequence_id",source_file) +"\"," + " } },"
+            # args : {"cond" :  , "then" :  , "else" :  }
+            args = action["if"]
+            condition = args["cond"].split()
+            child_needs_csv = False
+            children = []
 
+            script = script + "{\"kind\": \"_if\", \"args\": { \"lhs\":"
+            if condition[0] in ["x","y","z"]:
+                script = script + "\"" + condition[0] + "\""
+            else:
+                script = script + self.pin_name(condition[0],source_file)
+            script = script +"," "\"op\": "+ self.translate(condition[1],"condition") +", "
+            script = script + "\"rhs\": "+ condition[2] +","
+
+            script = script + "\"_then\": { "
+            if type(args["then"]) is str:
+                seq_needed = args["then"]
+                seq_id = -1
+                for source in self.source_files:
+                    f = open(source, 'r')
+                    file = yaml.load(f)
+                    f.close()
+                    if seq_needed in file:
+                        seq_id, n, needs_csv = self.make_sequence(file[seq_needed], source, obj_name=seq_needed)
+                        children.append(n)
+                        child_needs_csv = (child_needs_csv or needs_csv)
+                        break
+                script = script + "\"kind\":\"execute\","
+                script = script + "\"args\": {\"sequence_id\": " + str(seq_id) +" } },"
+            else:
+                script = script + "\"kind\":\"nothing\", \"args\": { } } } "
+            # script = script + "\"args\": { " + "\"," + " } } } }"
+            script = script + "\"_else\": { "
+            if "else" in args:
+                seq_needed = args["else"]
+                seq_id = -1
+                for source in self.source_files:
+                    f = open(source, 'r')
+                    file = yaml.load(f)
+                    f.close()
+                    if seq_needed in file:
+                        seq_id, n, needs_csv = self.make_sequence(file[seq_needed], source, obj_name=seq_needed)
+                        children.append(n)
+                        child_needs_csv = (child_needs_csv or needs_csv)
+                        break
+                script = script + "\"kind\":\"execute\","
+                script = script + "\"args\": {\"sequence_id\": " + str(seq_id) +" } } }"
+            else:
+                script = script + "\"kind\":\"nothing\", \"args\": { } } } } "
+            # script = script + "\"args\": { " + "\"," + " } } } }"
+            return (script, children, child_needs_csv)
         else:
             raise Exception("The action " + action.keys()[0] + " is undefined.")
         return script
 
-    import operator
-    def parse_operator(string):
-        """get the operator from the string given"""
-        ops = {
-                "is": operator.is_,
-                "is not": operator.is_not,
-                }
-        return ops[string]
 
     def check_change(self, yaml_obj, name):
         """Checks if an object or any object it depends on has changed.
            IF an object has been changed, it automatically deletes that object from storage.
-           yaml_obj: the new obejct definition
+           yaml_obj: the new object definition
            name: the name of the object
            hash: the new hash of the object"""
-        existance, id, stored_hash = stor.check_exist(name)
+        existance, id, stored_hash, children = stor.check_exist(name)
+        f = open(self.map, 'r')
+        print("looking if exists: ",name)
         if existance:
-            if stored_hash == hash(json.dumps(yaml_obj)):
-                # If the actions include user-defined objects, check if they changed.
-                for child in yaml_obj["actions"]:
-                    if type(child) is str:
-                        for name in self.source_files:
-                            file = yaml.load(open(name, mode='r'))
-                            if child in file:
-                                if self.check_change(file[name], child):
+            # needs_a_csv, csv_hash = stor.check_need_csv(name)
+            # if needs_a_csv:
+                # new_csv_hash = sha224((f.read()).encode()).hexdigest()
+            new_hash = sha224(json.dumps(yaml_obj).encode()).hexdigest()
+            str_obj = json.dumps(yaml_obj)
+            # If the hash of the object has not changed and its CSV, if it relies on one, has not changed.
+            if (str(stored_hash) == new_hash):
+            # if (str(stored_hash) == new_hash) and not (needs_a_csv and csv_hash != new_csv_hash):
+                # If the object has user-defined children, check if its children changed.
+                for old_child in children:
+                    if old_child[:5] != "auto_":
+                        for source in self.source_files:
+                            f = open(source, mode='r+')
+                            file = yaml.load(f)
+                            f.close()
+                            if old_child in file:
+                                if self.check_change(file[old_child], old_child)[0]:
+                                    # If the child has changed, we only need to delete the parent.
+                                    # The child will be deleted by its own call to check_change
+                                    # when we re-send the parent.
                                     stor.delete_object(name)
-                                    file.close()
+                                    # If one of its children have changed
+                                    print("result 1",name)
                                     return (True, id)
-                            file.close()
+                # If neither it nor its children have changed
+                print("result 2",name)
                 return (False, id)
-            else: # Already exists in storage and has changed
+            else:
+                # If the raw command's hash has changed or the hash of the CSV it needs has changed.
                 stor.delete_object(name)
+                print("result 3",name)
                 return (True, id)
         else:
             # Does not exist and needs to be made.
+            print("result 4",name)
             return (True, id)
 
     def make_sequence(self, yaml_obj, source_file, obj_name = None):
@@ -361,23 +442,34 @@ class ActionHandler():
            program-set name, then turns it into a CeleryScript command, sends
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
-        if obj_name is not None:
-            changed, id = self.check_change(yaml_obj, obj_name)
-            if not changed:
-                return (id, obj_name)
 
-        script = "{"
+        str_obj = json.dumps(yaml_obj)
+        needs_a_csv = ("group" in yaml_obj or "type" in yaml_obj or "to_plant" in str_obj or "to_self" in str_obj)
+        child_needs_csv = False
+
         name = ""
         auto = 1 # not-zero is true
         id = -1
+        hash = sha224(str_obj.encode()).hexdigest()
+
         if obj_name is not None:
-            name = obj_name
-            auto = 0 # zero is false
+            if needs_a_csv:
+                name = obj_name + "_" + self.map
+            else:
+                name = obj_name
+            changed, id = self.check_change(yaml_obj, name)
+            if not changed:
+                return (id, obj_name, False)
         else:
-            name = stor.unique_name()
+            name = stor.unique_name(hash)
+
+        script = "{"
 
         script = script + "\n  \"name\": \"" + name + "\","
-        data = {name : {"auto": auto, "kind" : "sequence", "hash":hash(json.dumps(yaml_obj)), "children":[] }}
+        data = {name : {"auto": auto, "kind" : "sequence", "hash":hash, "children":[] }}
+        # if needs_a_csv:
+            # data["CSV"] = self.map
+            # data["csv_hash"] = sha224((f.read()).encode()).hexdigest()
 
         script = script + "\n  \"body\": [ \n    "
         actions = yaml_obj["actions"]
@@ -391,29 +483,86 @@ class ActionHandler():
                         if row["group"].strip() in groups or row["types"].strip() in types:
                             for action in actions:
                                 # We need the "row" arguement just in case the action is "to_self"
-                                script = script + self.parse_action(action, source_file, row)
+                                if type(action) is str:
+                                    s, n, this_needs_csv = self.parse_action(action, source_file, row)
+                                    child_needs_csv = (child_needs_csv or this_needs_csv)
+                                    script = script + s
+                                    data[name]["children"].append(n)
+                                elif "if" in action:
+                                    s, childern, this_needs_csv = self.parse_action(action, source_file, row)
+                                    child_needs_csv = (child_needs_csv or this_needs_csv)
+                                    script = script + s
+                                    data[name]["children"] = data[name]["children"] + childern
+                                else:
+                                    script = script + self.parse_action(action, source_file, row)
                 elif "group" in yaml_obj:
                     groups = yaml_obj["groups"]
                     for row in reader:
                         if row["group"].strip() in groups:
                             for action in actions:
+                                if type(action) is str:
+                                    # This means the action is actually a sub-sequence
+                                    s, n, this_needs_csv = self.parse_action(action, source_file)
+                                    child_needs_csv = (child_needs_csv or this_needs_csv)
+                                    script = script + s
+                                    data[name]["children"].append(n)
+                                elif "if" in action:
+                                    s, childern, this_needs_csv = self.parse_action(action, source_file)
+                                    child_needs_csv = (child_needs_csv or this_needs_csv)
+                                    script = script + s
+                                    data[name]["children"] = data[name]["children"] + childern
                                 # We need the "row" arguement just in case the action is "to_self"
-                                script = script + self.parse_action(action, source_file, row)
+                                else:
+                                    script = script + self.parse_action(action, source_file, row)
                 elif "type" in yaml_obj:
                     types = yaml_obj["types"]
                     for row in reader:
                         if row["types"].strip() in types:
                             for action in actions:
+                                if type(action) is str:
+                                    # This means the action is actually a sub-sequence
+                                    s, n, this_needs_csv = self.parse_action(action, source_file)
+                                    child_needs_csv = (child_needs_csv or this_needs_csv)
+                                    script = script + s
+                                    data[name]["children"].append(n)
+                                elif "if" in action:
+                                    s, childern, this_needs_csv = self.parse_action(action, source_file)
+                                    child_needs_csv = (child_needs_csv or this_needs_csv)
+                                    script = script + s
+                                    data[name]["children"] = data[name]["children"] + childern
                                 # We need the "row" arguement just in case the action is "to_self"
-                                script = script + self.parse_action(action, source_file, row)
+                                else:
+                                    script = script + self.parse_action(action, source_file, row)
                 else:
                     # There is a map provided, but we don't need it.
                     for action in actions:
-                        script = script + self.parse_action(action, source_file)
+                        if type(action) is str:
+                            s, n, this_needs_csv = self.parse_action(action, source_file)
+                            child_needs_csv = (child_needs_csv or this_needs_csv)
+                            script = script + s
+                            data[name]["children"].append(n)
+                        elif "if" in action:
+                            s, childern, this_needs_csv = self.parse_action(action, source_file)
+                            child_needs_csv = (child_needs_csv or this_needs_csv)
+                            script = script + s
+                            data[name]["children"] = data[name]["children"] + childern
+                        else:
+                            script = script + self.parse_action(action, source_file)
         else:
             # There is no map provided, and we assume we don't need one.
             for action in actions:
-                script = script + parse_action(action, source_file)
+                if type(action) is str:
+                    s, n, this_needs_csv = self.parse_action(action, source_file)
+                    child_needs_csv = (child_needs_csv or this_needs_csv)
+                    script = script + s
+                    data[name]["children"].append(n)
+                elif "if" in action:
+                    s, childern, this_needs_csv = self.parse_action(action, source_file)
+                    child_needs_csv = (child_needs_csv or this_needs_csv)
+                    script = script + s
+                    data[name]["children"] = data[name]["children"] + childern
+                else:
+                    script = script + self.parse_action(action, source_file)
 
         script = script[:-1] # Truncate off the last comma of the last action
         # script = script + "\n      \"uuid\": \"" + name + "\"\n    }\n  ]\n}"
@@ -426,11 +575,16 @@ class ActionHandler():
         file.close()
         # print("\n",type(json.loads(script)),"\n")
 
+        # If one of its children needs a CSV file
+        # if not needs_a_csv and child_needs_csv:
+            # data["CSV"] = self.map
+            # data["csv_hash"] = sha224((f.read()).encode()).hexdigest()
+
         id = http.new_command(json.loads(script), "sequence")
         data[name]["id"] = id
         stor.add_data(data)
 
-        return (id, name)
+        return (id, name, (needs_a_csv or child_needs_csv))
 
     def make_regimen(self, yaml_obj, source_file, obj_name = None):
         """regimen : A yaml object that includes this:
@@ -443,22 +597,37 @@ class ActionHandler():
            program-set name, then turns it into a CeleryScript command, sends
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
-        if obj_name is not None:
-            changed, id = self.check_change(yaml_obj, obj_name)
-            if not changed:
-                return (id, obj_name)
 
-        script = "{"
-        script = script + "\n  \"color\": \"" + self.default(yaml_obj, "color", source_file) + "\","
+        str_obj = json.dumps(yaml_obj)
+        needs_a_csv = ("group" in yaml_obj or "type" in yaml_obj or "to_plant" in str_obj or "to_self" in str_obj)
+        child_needs_csv = False
+
         name = ""
         auto = 1 # not-zero is true
+        id = -1
+
+        hash = sha224(json.dumps(yaml_obj).encode()).hexdigest()
+
         if obj_name is not None:
-            name = obj_name
-            auto = 0 # zero is false
+            if needs_a_csv:
+                name = obj_name + "_" + self.map
+            else:
+                name = obj_name
+            changed, id = self.check_change(yaml_obj, name)
+            if not changed:
+                return (id, obj_name, False)
         else:
-            name = stor.unique_name()
+            name = stor.unique_name(hash)
+
+        script = "{"
+
+        script = script + "\n  \"color\": \"" + self.default(yaml_obj, "color", source_file) + "\","
+
         script = script + "\n  \"name\": \"" + name + "\","
-        data = {name : {"auto": auto, "kind" : "regimen", "hash":hash(json.dumps(yaml_obj)), "children":[]}}
+        data = {name : {"auto": auto, "kind" : "regimen", "hash":hash, "children":[]}}
+        # if needs_a_csv:
+            # data["CSV"] = self.map
+            # data["csv_hash"] = sha224((f.read()).encode()).hexdigest()
 
         list_of_sequences = [] # [(seq_id : , time_offsets : [])]
 
@@ -481,21 +650,29 @@ class ActionHandler():
             if type(sequence["actions"]) is not str:
                 # If the actions in the regimen is a list,
                 # and we need to generate the sequence ourselves.
-                send_this["actions"] = sequence["actions"]
-                seq_id, n = self.make_sequence(send_this, source_file)
+                seq_id, n, this_needs_csv = self.make_sequence(send_this, source_file)
+                child_needs_csv = (child_needs_csv or this_needs_csv)
             else:
-                # If the sequence refers to a sequence defined elsewhere by the user,
+                # If the actions refer to a sequence defined elsewhere by the user,
                 # and we need to find it.
                 looking_for = sequence["actions"]
                 for file_name in self.source_files:
                     f = open(file_name, 'r')
                     file = yaml.load(f)
                     if looking_for in file:
-                        send_this["actions"] = file[n]["actions"]
-                        seq_id, n = self.make_sequence(send_this, source_file, obj_name=looking_for)
+                        send_this["actions"] = file[looking_for]["actions"]
+                        # We don't include the sequence name because the regimen
+                        # may have different groups and types, and therefore needs
+                        # a new automatic sequence with the same actions.
+                        # But we still need to add the user-defined child in case it changes later.
+                        data[name]["children"].append(looking_for)
+                        seq_id, n, this_needs_csv = self.make_sequence(send_this, source_file, obj_name=None)
+                        child_needs_csv = (child_needs_csv or this_needs_csv)
                         f.close()
                         break
                     f.close()
+                if (seq_id==-1):
+                    raise Exception("The sequence "+looking_for+" required was not found.")
             data[name]["children"].append(n)
             list_of_sequences.append({"id":seq_id,"time_offsets": self.calc_time_offsets(sequence)})
             # Format all the sequences and their times for the regimen
@@ -513,6 +690,11 @@ class ActionHandler():
         script = script + "\n  ]\n}"
         # script = json.dumps(json.loads(script), indent="  ", sort_keys=False)
 
+        # If one of its children needs a CSV file
+        # if not needs_a_csv and child_needs_csv:
+            # data["CSV"] = self.map
+            # data["csv_hash"] = sha224((f.read()).encode()).hexdigest()
+
         file = open("celeryscript.txt",'a')
         # file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
         file.write(script)
@@ -522,7 +704,7 @@ class ActionHandler():
         data[name]["id"] = reg_id
         stor.add_data(data)
 
-        return (reg_id, name)
+        return (reg_id, name, (needs_a_csv or child_needs_csv))
 
     def make_farm_event(self, yaml_obj, source_file, obj_name):
         """yaml_obj : An YAML object we already know is an event.
@@ -533,45 +715,75 @@ class ActionHandler():
            it off and gets the ID back, and writes the YAML sequence object
            with its name and ID to internal storage."""
 
-        if "name" in yaml_obj:
-            changed, id = self.check_change(yaml_obj, obj_name)
-            if not changed:
-                return (id, obj_name)
 
-        data = {name : {"auto": 0, "kind" : "farm_event", "hash":hash(json.dumps(yaml_obj)), "children":[]}}
+        str_obj = json.dumps(yaml_obj)
+        needs_a_csv = ("group" in yaml_obj or "type" in yaml_obj or "to_plant" in str_obj or "to_self" in str_obj)
+        child_needs_csv = False
+
+        name = ""
+        auto = 1 # not-zero is true
+        id = -1
+        hash = sha224(json.dumps(yaml_obj).encode()).hexdigest()
+
+        if obj_name is not None:
+            if needs_a_csv:
+                name = obj_name + "_" + self.map
+            else:
+                name = obj_name
+            changed, id = self.check_change(yaml_obj, name)
+            if not changed:
+                return (id, obj_name, False)
+        else:
+            name = stor.unique_name(hash)
+
+        script = "{"
+
+        data = {name : {"auto": 0, "kind" : "farm_event", "hash":hash, "children":[]}}
+
+        # if needs_a_csv:
+            # data["CSV"] = self.map
+            # data["csv_hash"] = sha224((f.read()).encode()).hexdigest()
+
         script  = script + "\n  \"start_time\" : \"" + self.format_time(yaml_obj["start_time"]) + "\","
         if "repeat_event" in yaml_obj:
             # The following is a field in Farm Events:
             # repeat_event: {every: default 1, unit = "minutes/hours/days/weeks/months/years", until: ???}
             script = script + "\n  \"end_time\" : \"" + self.format_time(yaml_obj["repeat_event"]["until"]) + "\","
-            script = script + "\n  \"repeat\" : " + self.default(yaml_obj["repeat_event"], "every", source_file) + "\","
+            script = script + "\n  \"repeat\" : " + self.default(yaml_obj["repeat_event"], "every", source_file) + ","
             script = script + "\n  \"time_unit\" : \"" + yaml_obj["repeat_event"]["unit"] + "\","
         else:
             script = script + "\n  \"time_unit\" : " + "\"never\","
-            script = script + "\n  \"repeat\" : " + "\"1\","
+            script = script + "\n  \"repeat\" : " + "1,"
         id = -1
         n = ""
         if "schedule" in yaml_obj:
-            id, n = self.make_regimen({"schedule" : yaml_obj["schedule"]}, source_file)
+            id, n, this_needs_csv = self.make_regimen({"schedule" : yaml_obj["schedule"]}, source_file)
+            child_needs_csv = (child_needs_csv or this_needs_csv)
             script = script + "\n  \"executable_type\" : " + "\"regimen\","
         elif "actions" in yaml_obj:
             if type(yaml_obj["actions"]) is not str:
-                id, n = self.make_sequence({"actions" : yaml_obj["actions"]}, source_file)
+                id, n, this_needs_csv = self.make_sequence({"actions" : yaml_obj["actions"]}, source_file)
+                child_needs_csv = (child_needs_csv or this_needs_csv)
                 script = script + "\n  \"executable_type\" : " + "\"sequence\","
             else:
-                id, type, n = self.obj_from_name(yaml_obj["actions"])
+                id, type, n, this_needs_csv = self.obj_from_name(yaml_obj["actions"])
+                child_needs_csv = (child_needs_csv or this_needs_csv)
                 script = script + "\n  \"executable_type\" : " + "\"" + type + "\","
-        script = script + "\n  \"executable_id\" : " + str(id) +  "\n  \"uuid\": "+name+"\n}"
+        script = script + "\n  \"executable_id\" : " + str(id) +  "\n }"
         data[name]["children"].append(n)
 
         file = open("celeryscript.txt",'a')
-        file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
+        file.write(script)
         file.close()
 
         event_id = http.new_command(json.loads(script),"farm_event")
         data[name]["id"] = event_id
-        # When converting an int to a bool, the boolean value is True for all integers except 0.
-        # auto = false
+
+        # If one of its children needs a CSV file
+        # if not needs_a_csv and child_needs_csv:
+            # data["CSV"] = self.map
+            # data["csv_hash"] = sha224((f.read()).encode()).hexdigest()
+
         stor.add_data(data)
 
         return (id, name)

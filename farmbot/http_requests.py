@@ -63,7 +63,7 @@ def new_command(json_script, event_type: str):  # TODO rename if sequence, regim
         id = new_item.json()["id"]
     elif event_type == "sequence":
         new_item = requests.post('https://my.farmbot.io/api/sequences', headers=headers, json=json_script)
-        print("\n",new_item.json(),"\n")
+        # print("\n",new_item.json(),"\n")
         id = new_item.json()["id"]
     return id
 

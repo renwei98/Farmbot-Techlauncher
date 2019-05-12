@@ -34,73 +34,89 @@ PATH = "../.internal_data/farmbot_commands.yaml"
 # been sent, we will have to delete the old one from FarmBot and update all objects
 # that have it as a child, and update all "auto"==True objects that have it as its parent.
 
-def unique_name():
+def unique_name(hash):
     f = open(PATH,mode='r')
     file = yaml.load(f)
-    name = "auto_"
+    name = "auto_" #+ hash[0:3]
+    # return name
     index = 1
     if file is not None:
         while True:
             if (name+str(index)) not in file:
                 name = name+str(index)
                 break
+            index += 1
     else:
         f.close()
-        return "auto_1"
+        return name
     f.close()
     return name
 
 def check_exist(name):
     f = open(PATH,mode='r')
     file = yaml.load(f)
-    if file is None:
-        f.close()
-        return (True, -1, -9)
-    elif name in file:
-        f.close()
-        return (True, file[key]["id"], file[name]["hash"])
     f.close()
-    return (False, -1, -9)
+    if file is None:
+        return (False, -1, -9, [])
+    elif name in file:
+        return (True, file[name]["id"], file[name]["hash"], file[name]["children"])
+    return (False, -1, -9, [])
+
+def check_need_csv(name):
+    f = open(PATH,mode='r')
+    file = yaml.load(f)
+    f.close()
+    if "CSV" in file[name]:
+        return (True, file[name]["csv_hash"])
+    else:
+        return (False, -1)
 
 def delete_all():
-    f = open(PATH,mode='r+')
+    f = open(PATH,mode='r')
     file = yaml.load(f)
+    f.close()
     if file is not None:
         for name in file:
             http.delete_command(file[name]["id"], file[name]["kind"])
-            del file[name]
-        yaml.dump(file, f)
+        f = open(PATH,mode='w')
+        yaml.dump("", f)
         f.close()
     return
 
 def delete_object(name):
-    f = open(PATH,mode='r+')
+    f = open(PATH,mode='r')
     file = yaml.load(f)
+    f.close()
     if file is None:
         return
-    children = set()
+    children = []
     if "children" in file[name]:
-        children = set(file[name]["children"])
+        children = file[name]["children"]
     http.delete_command(file[name]["id"], file[name]["kind"])
     del file[name]
+    # print("deleted ",name, " new file ",file)
+    f = open(PATH,mode='w')
     yaml.dump(file, f)
     f.close()
     for child in children:
-        delete_outdated(child)
+        if file[child]["auto"]:
+            delete_outdated(child)
     return
 
 def delete_outdated(name):
-    f = open(PATH,mode='r+')
+    f = open(PATH,mode='r')
     file = yaml.load(f)
-    if file[name]["auto"]:
-        children = set()
-        if "children" in file[name]:
-            children = set(file[name]["children"])
-        http.delete_command(file[name]["id"], file[name]["kind"])
-        del file[name]
-        yaml.dump(file, f)
-        f.close()
-        for child in children:
+    f.close()
+    children = []
+    if "children" in file[name]:
+        children = file[name]["children"]
+    http.delete_command(file[name]["id"], file[name]["kind"])
+    del file[name]
+    f = open(PATH,mode='w')
+    yaml.dump(file, f)
+    f.close()
+    for child in children:
+        if file[child]["auto"]:
             delete_outdated(child)
     return
 

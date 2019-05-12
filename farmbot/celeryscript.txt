@@ -1,76 +1,156 @@
 {
-  "name": "auto_1",
-  "body": [ 
-    {"kind":"move_relative","args": "x" :10,"y":10,"z":10,"speed": 10} },{"kind":"move_absolute","args": {"location": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"offset": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"speed": 100} }
-  ]
-}{
-  "name": "auto_1",
-  "body": [ 
-    {"kind":"move_relative","args": {"x" :10,"y":10,"z":10,"speed": 10} },{"kind":"move_absolute","args": {"location": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"offset": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"speed": 100} }
-  ]
-}{
-  "name": "auto_1",
-  "body": [ 
-    {"kind":"move_relative","args": {"x" :10,"y":10,"z":10,"speed": 10} },{"kind":"move_absolute","args": {"location": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"offset": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"speed": 100} }
-  ]
-}{
-  "name": "auto_1",
-  "body": [ 
-    {"kind":"move_relative","args": {"x" :10,"y":10,"z":10,"speed": 10} },{"kind":"move_absolute","args": {"location": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"offset": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"speed": 100} }
-  ]
-}{
-  "name": "auto_1",
-  "body": [ 
-    {"kind":"move_relative","args": {"x" :10,"y":10,"z":10,"speed": 10} },{"kind":"move_absolute","args": {"location": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"offset": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"speed": 100} }
-  ]
-}{
-  "name": "auto_1",
+  "name": "auto_",
   "body": [ 
     {"kind":"move_relative","args": {"x" :10,"y":10,"z":10,"speed": 10} },{"kind":"move_absolute","args": {"location": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"offset": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"speed": 100} }
   ]
 }{
   "color": "gray",
-  "name": "move_farmbot_1",
+  "name": "regimen_1",
   "regimen_items": [ 
     {
       "time_offset": 0,
-      "sequence_id": 19492
+      "sequence_id": 19878
     },
     {
       "time_offset": 14400000,
-      "sequence_id": 19492
+      "sequence_id": 19878
     },
     {
       "time_offset": 28800000,
-      "sequence_id": 19492
+      "sequence_id": 19878
     },
     {
       "time_offset": 43200000,
-      "sequence_id": 19492
+      "sequence_id": 19878
     },
     {
       "time_offset": 57600000,
-      "sequence_id": 19492
+      "sequence_id": 19878
     },
     {
       "time_offset": 72000000,
-      "sequence_id": 19492
+      "sequence_id": 19878
     },
     {
       "time_offset": 86400000,
-      "sequence_id": 19492
+      "sequence_id": 19878
     },
     {
       "time_offset": 100800000,
-      "sequence_id": 19492
+      "sequence_id": 19878
     },
     {
       "time_offset": 115200000,
-      "sequence_id": 19492
+      "sequence_id": 19878
     },
     {
       "time_offset": 129600000,
-      "sequence_id": 19492
+      "sequence_id": 19878
+    }
+  ]
+}{
+  "name": "auto_1",
+  "body": [ 
+    {"kind":"move_relative","args": {"x" :10,"y":10,"z":10,"speed": 10} }
+  ]
+}{
+  "color": "gray",
+  "name": "regimen_2",
+  "regimen_items": [ 
+    {
+      "time_offset": 0,
+      "sequence_id": 19879
+    },
+    {
+      "time_offset": 14400000,
+      "sequence_id": 19879
+    },
+    {
+      "time_offset": 28800000,
+      "sequence_id": 19879
+    },
+    {
+      "time_offset": 43200000,
+      "sequence_id": 19879
+    },
+    {
+      "time_offset": 57600000,
+      "sequence_id": 19879
+    },
+    {
+      "time_offset": 72000000,
+      "sequence_id": 19879
+    },
+    {
+      "time_offset": 86400000,
+      "sequence_id": 19879
+    },
+    {
+      "time_offset": 100800000,
+      "sequence_id": 19879
+    },
+    {
+      "time_offset": 115200000,
+      "sequence_id": 19879
+    },
+    {
+      "time_offset": 129600000,
+      "sequence_id": 19879
+    }
+  ]
+}{
+  "name": "move_farmbot_1",
+  "body": [ 
+    {"kind":"move_relative","args": {"x" :10,"y":10,"z":10,"speed": 10} }
+  ]
+}{
+  "name": "auto_2",
+  "body": [ 
+    {"kind":"move_relative","args": {"x" :10,"y":10,"z":10,"speed": 10} },{"kind":"move_absolute","args": {"location": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"offset": {"kind": "coordinate","args": {"x": 0,"y": 0,"z": 0} },"speed": 100} },{"kind": "wait", "args": { "milliseconds": 1000 } }
+  ]
+}{
+  "color": "gray",
+  "name": "regimen_1",
+  "regimen_items": [ 
+    {
+      "time_offset": 0,
+      "sequence_id": 19881
+    },
+    {
+      "time_offset": 14400000,
+      "sequence_id": 19881
+    },
+    {
+      "time_offset": 28800000,
+      "sequence_id": 19881
+    },
+    {
+      "time_offset": 43200000,
+      "sequence_id": 19881
+    },
+    {
+      "time_offset": 57600000,
+      "sequence_id": 19881
+    },
+    {
+      "time_offset": 72000000,
+      "sequence_id": 19881
+    },
+    {
+      "time_offset": 86400000,
+      "sequence_id": 19881
+    },
+    {
+      "time_offset": 100800000,
+      "sequence_id": 19881
+    },
+    {
+      "time_offset": 115200000,
+      "sequence_id": 19881
+    },
+    {
+      "time_offset": 129600000,
+      "sequence_id": 19881
     }
   ]
 }
