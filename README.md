@@ -5,8 +5,10 @@
 <a href = "#Title2"><b> 2. Project Administration </b></a><br/>
 <a href = "#Title3"><b> 3. Documentation </b></a><br/> 
 <a href = "#Title4"><b> 4. UML Diagram </b></a><br/>
-<a href = "#Title4"><b> 5. Current Progress </b></a><br/>
-<a href = "#Title5"><b> 6. Technical Tools and Constraints </b></a>
+<a href = "#Title5"><b> 5. Current Progress </b></a><br/>
+<a href = "#Title6"><b> 6. Technical Tools and Constraints </b></a>
+<a href = "#Title7"><b> 7. User Manual</b></a>
+
 
 <br />
 <h2><a name = "Title1"> 1. Project Overview </a></h2>
@@ -123,3 +125,6 @@ Phase 4: Finalizing beta version and demonstrating functionality, developing han
 * Constraints:
     * Some testing has to be done on site with physical machines
     * Python is the preferred language
+    
+<br />
+<h2><a name = "Title7"> 7. User Manual</a></h2>
