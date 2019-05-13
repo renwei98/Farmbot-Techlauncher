@@ -44,7 +44,7 @@ Week 10-12 Reflection and Improvements <br />
 
 
 
->[Decision Log](https://docs.google.com/document/d/1AfgSXgv-pHwiSv7r8mqHihJIXiVt2jJx9cPXHvMyFtYedit?usp=sharing) <br />
+>[Decision Log](https://docs.google.com/document/d/1zjKedgMne--pPrp5UAFLTrSz25PfYUizVHSsIBpZfhk/edit?usp=sharing) <br />
 
 <h3> 2.4 Team </h3>
 
