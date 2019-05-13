@@ -106,13 +106,13 @@ Not required
 
 <h2><a name = "Title5"> 5. Current Progress </a></h2>
 
-Current Progress: Able to send simple commands to the farmbot using program and see response
+Current Progress: Complex, multiple commands are able to be send using the yaml and CSV to celeryscript conversion
 
 **Milestones:**
 
 Phase 1: ~~Create a Discovery Report to demonstrate project specifications and requirements~~ <br/>
 Phase 2: ~~Release an alpha version of the software, able to send simple commands to the Farmbot, replicating current functionality~~ <br/>
-Phase 3: Release a beta version of the software, implementing most desired commands while integrating external input through text and CSV <br/>
+Phase 3: ~~Release a beta version of the software, implementing most desired commands while integrating external input through text and CSV~~ <br/>
 Phase 4: Finalizing beta version and demonstrating functionality, developing handover documentation <br/>
 
 <br />
