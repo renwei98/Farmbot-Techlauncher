@@ -10,7 +10,7 @@ import datetime
 from time import timezone
 import handle_internal_storage as stor
 from hashlib import sha224
-import datetime
+import pytz
 # device_id = api_token_gen.token_data['token']['unencoded']['bot']
 # mqtt_host = api_token_gen.token_data['token']['unencoded']['mqtt']
 # token = api_token_gen.token_data['token']['encoded']
@@ -81,13 +81,13 @@ class ActionHandler():
             if name in file:
                 if "schedule" in file[name]:
                     id, name, this_needs_csv = self.make_regimen(file[name], file_name, name)
-                    return (id, "regimen", name, this_needs_csv)
+                    return (id, "Regimen", name, this_needs_csv)
                 elif "actions" in file[name]:
-                    if file[name["actions"]] is not str:
+                    if file[name]["actions"] is not str:
                         id, name, this_needs_csv = self.make_sequence(file[name], file_name, name)
-                        return (id, "sequence", name, this_needs_csv)
+                        return (id, "Sequence", name, this_needs_csv)
                     else:
-                        return self.obj_from_name(file[name["actions"]])
+                        return self.obj_from_name(file[name]["actions"])
                 else:
                     print("Invalid format for object", name)
 
@@ -147,13 +147,19 @@ class ActionHandler():
 
     def format_time(self, time):
         """time: DD/MM/YYYY 23:00
-           returns: YYYY-MM-DDT23:00:00.000Z aka ISO 8601 date representation, local time."""
-        string = time[6:10]+"-"+time[3:5]+"-"+time[0:2]+"T"+time[11:]+":00"
+           returns: ISO 8601 date representation, from local time on the user's desktop."""
+        # Attributes: year, month, day, hour, minute, second, microsecond, and tzinfo.
+        tz = datetime.datetime.now().astimezone().tzinfo
+        tzaware_dt = datetime.datetime(int(time[6:10]), int(time[3:5]), int(time[0:2]),
+         int(time[11:13]), int(time[14:]), tzinfo=tz)
+        string = tzaware_dt.isoformat()
+        string = string[:19]+".000"+string[19:]
+        # string = time[6:10]+"-"+time[3:5]+"-"+time[0:2]+"T"+time[11:]+":00"
         # tz = datetime.datetime.utcnow().isoformat()
         # print("\n tz type", type(tz))
         # print("\n", tz, "\n")
         # print("\n time " + string + tz[19:] + "\n")
-        return string
+        return tzaware_dt.isoformat()
 
 
     def default(self, yaml_obj, field, source_file):
@@ -462,6 +468,12 @@ class ActionHandler():
                 return (id, obj_name, False)
         else:
             name = stor.unique_name(hash)
+            # data = {name : {"auto": auto, "kind" : "sequence", "hash":hash, "children":[] }}
+            # Auto-genned names need to be stored immediately by unique_name, and adding
+            # should replace names
+            # If we discover we need a csv later, we must change our name (and can safely do so)
+            # if it is not auto-generated
+
 
         script = "{"
 
@@ -759,16 +771,16 @@ class ActionHandler():
         if "schedule" in yaml_obj:
             id, n, this_needs_csv = self.make_regimen({"schedule" : yaml_obj["schedule"]}, source_file)
             child_needs_csv = (child_needs_csv or this_needs_csv)
-            script = script + "\n  \"executable_type\" : " + "\"regimen\","
+            script = script + "\n  \"executable_type\" : " + "\"Regimen\","
         elif "actions" in yaml_obj:
             if type(yaml_obj["actions"]) is not str:
                 id, n, this_needs_csv = self.make_sequence({"actions" : yaml_obj["actions"]}, source_file)
                 child_needs_csv = (child_needs_csv or this_needs_csv)
-                script = script + "\n  \"executable_type\" : " + "\"sequence\","
+                script = script + "\n  \"executable_type\" : " + "\"Sequence\","
             else:
-                id, type, n, this_needs_csv = self.obj_from_name(yaml_obj["actions"])
+                id, kind, n, this_needs_csv = self.obj_from_name(yaml_obj["actions"])
                 child_needs_csv = (child_needs_csv or this_needs_csv)
-                script = script + "\n  \"executable_type\" : " + "\"" + type + "\","
+                script = script + "\n  \"executable_type\" : " + "\"" + kind + "\","
         script = script + "\n  \"executable_id\" : " + str(id) +  "\n }"
         data[name]["children"].append(n)
 

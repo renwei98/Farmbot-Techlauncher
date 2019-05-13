@@ -12,11 +12,11 @@ parser.add_argument("-d","--delete", type=str,
 
 args = parser.parse_args()
 #remember to change 'myFile' to the name of User Manual
-parser.add_argument("-h", "--help", dest="myFile", help="open user manual")
+# parser.add_argument("-h", "--help", dest="myFile", help="open user manual")
 args = parser.parse_args()
-myFile = args.myFile
-text = open(myFile)
-print(text.read())
+# myFile = args.myFile
+# text = open(myFile)
+# print(text.read())
 
 if args.delete:
     if args.delete == "all":
