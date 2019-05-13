@@ -1,6 +1,7 @@
 import paho.mqtt.client as mqtt
 import logging
 from util import api_token_gen
+port = 1883
 
 def subscribe_topics(client,topics,qos=0):
    print("topic ",topics,"  ",qos)
@@ -38,6 +39,17 @@ def check_subs(client):
          client.loop(.01)  #check for messages manually
    return False
 
+def on_subscribe(client,userdata,mid,granted_qos):
+      #  removes mid valuse from subscribe list
+   logging.debug("in on subscribe callback result "+str(mid))
+   if len(client.topic_ack)==0:
+          #print("All subs acknowledged")
+          return
+   for index,t in enumerate(client.topic_ack):
+      if t[1]==mid:
+         client.topic_ack.pop(index)#remove it
+         #print("removed from list")
+
 def on_connect(client, userdata, flags, rc):
     if rc==0:
         client.connected_flag=True #set flag
@@ -48,6 +60,8 @@ def on_connect(client, userdata, flags, rc):
 def on_disconnect(client, userdata, rc):
    print("client disconnected ok")
 
+def on_publish(client, userdata, mid):
+   print("In on_pub callback mid= "  ,mid)
 
 device_id = api_token_gen.token_data['token']['unencoded']['bot']
 token = api_token_gen.token_data['token']['encoded']
@@ -58,6 +72,13 @@ mqtt.Client.connected_flag=False#create flag in class
 mqtt.Client.topic_ack=[]#create topic acknowledgement list in class
 mqtt.Client.running_loop=False#create topic acknowledgement list in class
 client = mqtt.Client()
+client.on_connect = on_connect
+client.on_disconnect = on_disconnect
+client= mqtt.Client("Python1",False)       #create client object
+client.on_subscribe = on_subscribe   #assign function to callback
+client.on_disconnect = on_disconnect #assign function to callback
+client.on_connect = on_connect #assign function to callback
+client.connect(broker,port,keepalive=30)           #establish connection
 
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect #assign function to callback
