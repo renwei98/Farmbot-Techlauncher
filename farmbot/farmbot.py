@@ -11,6 +11,12 @@ parser.add_argument("-d","--delete", type=str,
                     help="a) 'all', or b) a list of commands to delete, comma separated with NO spaces.")
 
 args = parser.parse_args()
+#remember to change 'myFile' to the name of User Manual
+parser.add_argument("-h", "--help", dest="myFile", help="Open specified file")
+args = parser.parse_args()
+myFile = args.myFile
+text = open(myFile)
+print(text.read())
 
 if args.delete:
     if args.delete == "all":
