@@ -316,7 +316,7 @@ class ActionHandler():
             script = script + "{\"kind\":\"move_absolute\","
             script = script + "\"args\": {\"location\": " + self.parse_coord(row=row,source_file=source_file)
             script = script + "\"offset\": " + self.parse_coord(coords=args,source_file=source_file)
-            script = script + "\"speed\": " + self.default(action, "speed",source_file) + "},},"
+            script = script + "\"speed\": " + self.default(action, "speed",source_file) + "} },"
         elif "to_plant" in action:
             try:
                 with open(self.map, "r") as csv_file:
@@ -476,11 +476,11 @@ class ActionHandler():
         if self.map is not None:
             with open(self.map, "r") as csv_file:
                 reader = csv.DictReader(csv_file)
-                if "group" in yaml_obj and "type" in yaml_obj:
+                if "groups" in yaml_obj and "types" in yaml_obj:
                     groups = yaml_obj["groups"]
                     types = yaml_obj["types"]
                     for row in reader:
-                        if row["group"].strip() in groups or row["types"].strip() in types:
+                        if row["group"].strip() in groups or row["type"].strip() in types:
                             for action in actions:
                                 # We need the "row" arguement just in case the action is "to_self"
                                 if type(action) is str:
@@ -495,7 +495,7 @@ class ActionHandler():
                                     data[name]["children"] = data[name]["children"] + childern
                                 else:
                                     script = script + self.parse_action(action, source_file, row)
-                elif "group" in yaml_obj:
+                elif "groups" in yaml_obj:
                     groups = yaml_obj["groups"]
                     for row in reader:
                         if row["group"].strip() in groups:
@@ -514,10 +514,10 @@ class ActionHandler():
                                 # We need the "row" arguement just in case the action is "to_self"
                                 else:
                                     script = script + self.parse_action(action, source_file, row)
-                elif "type" in yaml_obj:
+                elif "types" in yaml_obj:
                     types = yaml_obj["types"]
                     for row in reader:
-                        if row["types"].strip() in types:
+                        if row["type"].strip() in types:
                             for action in actions:
                                 if type(action) is str:
                                     # This means the action is actually a sub-sequence
