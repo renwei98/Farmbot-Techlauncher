@@ -399,19 +399,22 @@ class ActionHandler():
            yaml_obj: the new object definition
            name: the name of the object
            hash: the new hash of the object"""
-        existance, id, stored_hash, children = stor.check_exist(name)
+        existance, id, stored_hash, csv_hash, children = stor.check_exist(name, self.map)
         f = open(self.map, 'r')
-        print("looking if exists: ",name)
+        # print("looking if exists: ",name, " or ",name+"_"+self.map)
         if existance:
-            # needs_a_csv, csv_hash = stor.check_need_csv(name)
-            # if needs_a_csv:
-                # new_csv_hash = sha224((f.read()).encode()).hexdigest()
-            new_hash = sha224(json.dumps(yaml_obj).encode()).hexdigest()
+            needs_a_csv = (csv_hash != -9)
+            new_csv_hash = -9
+            if needs_a_csv:
+                new_csv_hash = sha224((f.read()).encode()).hexdigest()
             str_obj = json.dumps(yaml_obj)
-            # If the hash of the object has not changed and its CSV, if it relies on one, has not changed.
-            if (str(stored_hash) == new_hash):
-            # if (str(stored_hash) == new_hash) and not (needs_a_csv and csv_hash != new_csv_hash):
+            new_hash = sha224(str_obj.encode()).hexdigest()
+            # If the hash of the object has not changed
+            # and its CSV, if it relies on one, has also not changed.
+            # if (str(stored_hash) == new_hash):
+            if (stored_hash == new_hash) and not (needs_a_csv and csv_hash != new_csv_hash):
                 # If the object has user-defined children, check if its children changed.
+                # print("\n old csv hash ",csv_hash,"\n new csv hash ",new_csv_hash,"\n")
                 for old_child in children:
                     if old_child[:5] != "auto_":
                         for source in self.source_files:
@@ -431,13 +434,18 @@ class ActionHandler():
                 print("result 2",name)
                 return (False, id)
             else:
-                # If the raw command's hash has changed or the hash of the CSV it needs has changed.
-                stor.delete_object(name)
-                print("result 3",name)
+                # If the raw command's hash has changed
+                # or the hash of the CSV it needs has changed.
+                if needs_a_csv:
+                    stor.delete_object(name+"_"+self.map)
+                    print("result 3",name)
+                else:
+                    stor.delete_object(name)
+                    print("result 4",name)
                 return (True, id)
         else:
             # Does not exist and needs to be made.
-            print("result 4",name)
+            print("result 5",name)
             return (True, id)
 
     def make_sequence(self, yaml_obj, source_file, obj_name = None):
@@ -467,7 +475,8 @@ class ActionHandler():
             if not changed:
                 return (id, obj_name, False)
         else:
-            name = stor.unique_name(hash)
+            name = stor.unique_name()
+            auto = 0
             # data = {name : {"auto": auto, "kind" : "sequence", "hash":hash, "children":[] }}
             # Auto-genned names need to be stored immediately by unique_name, and adding
             # should replace names
@@ -479,13 +488,14 @@ class ActionHandler():
 
         script = script + "\n  \"name\": \"" + name + "\","
         data = {name : {"auto": auto, "kind" : "sequence", "hash":hash, "children":[] }}
-        # if needs_a_csv:
-            # data["CSV"] = self.map
-            # data["csv_hash"] = sha224((f.read()).encode()).hexdigest()
+        if needs_a_csv:
+            print("we know ",name," needs a csv from the start")
+            data[name]["CSV"] = self.map
+            data[name]["csv_hash"] = sha224((open(self.map,"r").read()).encode()).hexdigest()
 
         script = script + "\n  \"body\": [ \n    "
         actions = yaml_obj["actions"]
-        if self.map is not None:
+        if self.map is not None or needs_a_csv:
             with open(self.map, "r") as csv_file:
                 reader = csv.DictReader(csv_file)
                 if "groups" in yaml_obj and "types" in yaml_obj:
@@ -545,23 +555,10 @@ class ActionHandler():
                                 # We need the "row" arguement just in case the action is "to_self"
                                 else:
                                     script = script + self.parse_action(action, source_file, row)
-                else:
-                    # There is a map provided, but we don't need it.
-                    for action in actions:
-                        if type(action) is str:
-                            s, n, this_needs_csv = self.parse_action(action, source_file)
-                            child_needs_csv = (child_needs_csv or this_needs_csv)
-                            script = script + s
-                            data[name]["children"].append(n)
-                        elif "if" in action:
-                            s, childern, this_needs_csv = self.parse_action(action, source_file)
-                            child_needs_csv = (child_needs_csv or this_needs_csv)
-                            script = script + s
-                            data[name]["children"] = data[name]["children"] + childern
-                        else:
-                            script = script + self.parse_action(action, source_file)
+        elif self.map is None and needs_csv:
+            raise Exception(source_file + " has a command that needs a map but you forgot to provide one!")
         else:
-            # There is no map provided, and we assume we don't need one.
+            # We may need a map for "to_plant", but nothing else.
             for action in actions:
                 if type(action) is str:
                     s, n, this_needs_csv = self.parse_action(action, source_file)
@@ -587,16 +584,24 @@ class ActionHandler():
         file.close()
         # print("\n",type(json.loads(script)),"\n")
 
-        # If one of its children needs a CSV file
-        # if not needs_a_csv and child_needs_csv:
-            # data["CSV"] = self.map
-            # data["csv_hash"] = sha224((f.read()).encode()).hexdigest()
+        needs_a_csv = (needs_a_csv or child_needs_csv)
 
-        id = http.new_command(json.loads(script), "sequence")
+        script = json.loads(script)
+        # If one of its children needs a CSV file, but it wasn't obvious that itself did.
+        if needs_a_csv and name[-4:]!=".csv" and name[:5]!="auto_":
+            print("we know ",name," needs a csv later")
+            old_name = name
+            name = name + "_" + self.map
+            data = {name: data[old_name]}
+            data[name]["CSV"] = self.map
+            data[name]["csv_hash"] = sha224((open(self.map,"r").read()).encode()).hexdigest()
+            script["name"] = name
+
+        id = http.new_command(script,"sequence")
         data[name]["id"] = id
         stor.add_data(data)
 
-        return (id, name, (needs_a_csv or child_needs_csv))
+        return (id, name, needs_a_csv)
 
     def make_regimen(self, yaml_obj, source_file, obj_name = None):
         """regimen : A yaml object that includes this:
@@ -629,7 +634,8 @@ class ActionHandler():
             if not changed:
                 return (id, obj_name, False)
         else:
-            name = stor.unique_name(hash)
+            name = stor.unique_name()
+            auto = 0
 
         script = "{"
 
@@ -637,9 +643,11 @@ class ActionHandler():
 
         script = script + "\n  \"name\": \"" + name + "\","
         data = {name : {"auto": auto, "kind" : "regimen", "hash":hash, "children":[]}}
-        # if needs_a_csv:
-            # data["CSV"] = self.map
-            # data["csv_hash"] = sha224((f.read()).encode()).hexdigest()
+
+        if needs_a_csv:
+            print("we know ",name," needs a csv from the start")
+            data[name]["CSV"] = self.map
+            data[name]["csv_hash"] = sha224((open(self.map,"r").read()).encode()).hexdigest()
 
         list_of_sequences = [] # [(seq_id : , time_offsets : [])]
 
@@ -702,21 +710,33 @@ class ActionHandler():
         script = script + "\n  ]\n}"
         # script = json.dumps(json.loads(script), indent="  ", sort_keys=False)
 
-        # If one of its children needs a CSV file
-        # if not needs_a_csv and child_needs_csv:
-            # data["CSV"] = self.map
-            # data["csv_hash"] = sha224((f.read()).encode()).hexdigest()
-
         file = open("celeryscript.txt",'a')
-        # file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
         file.write(script)
+        # file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
         file.close()
 
-        reg_id = http.new_command(json.loads(script), "regimen")
-        data[name]["id"] = reg_id
+        needs_a_csv = (needs_a_csv or child_needs_csv)
+
+        script = json.loads(script)
+        if needs_a_csv and name[-4:]!=".csv":
+            print("we know ",name," needs a csv later")
+            old_name = name
+            name = name + "_" + self.map
+            data = {name: data[old_name]}
+            data[name]["CSV"] = self.map
+            data[name]["csv_hash"] = sha224((open(self.map,"r").read()).encode()).hexdigest()
+            script["name"] = name
+            file = open("celeryscript.txt",'a')
+            file.write(json.dumps(script))
+            # file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
+            file.close()
+
+        id = http.new_command(script,"regimen")
+        data[name]["id"] = id
+
         stor.add_data(data)
 
-        return (reg_id, name, (needs_a_csv or child_needs_csv))
+        return (id, name, needs_a_csv)
 
     def make_farm_event(self, yaml_obj, source_file, obj_name):
         """yaml_obj : An YAML object we already know is an event.
@@ -746,15 +766,17 @@ class ActionHandler():
             if not changed:
                 return (id, obj_name, False)
         else:
-            name = stor.unique_name(hash)
+            name = stor.unique_name()
+            auto = 0
 
         script = "{"
 
         data = {name : {"auto": 0, "kind" : "farm_event", "hash":hash, "children":[]}}
 
-        # if needs_a_csv:
-            # data["CSV"] = self.map
-            # data["csv_hash"] = sha224((f.read()).encode()).hexdigest()
+        if needs_a_csv:
+            print("we know ",name," needs a csv from the start")
+            data[name]["CSV"] = self.map
+            data[name]["csv_hash"] = sha224((open(self.map,"r").read()).encode()).hexdigest()
 
         script  = script + "\n  \"start_time\" : \"" + self.format_time(yaml_obj["start_time"]) + "\","
         if "repeat_event" in yaml_obj:
@@ -786,16 +808,24 @@ class ActionHandler():
 
         file = open("celeryscript.txt",'a')
         file.write(script)
+        # file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
         file.close()
 
-        event_id = http.new_command(json.loads(script),"farm_event")
-        data[name]["id"] = event_id
+        needs_a_csv = (needs_a_csv or child_needs_csv)
 
-        # If one of its children needs a CSV file
-        # if not needs_a_csv and child_needs_csv:
-            # data["CSV"] = self.map
-            # data["csv_hash"] = sha224((f.read()).encode()).hexdigest()
+        script = json.loads(script)
+        if needs_a_csv and name[-4:]!=".csv" and name[:5]!="auto_":
+            print("we know ",name," needs a csv later")
+            old_name = name
+            name = name + "_" + self.map
+            data = {name: data[old_name]}
+            data[name]["CSV"] = self.map
+            data[name]["csv_hash"] = sha224((open(self.map,"r").read()).encode()).hexdigest()
+            script["name"] = name
+
+        id = http.new_command(script,"farm_event")
+        data[name]["id"] = id
 
         stor.add_data(data)
 
-        return (id, name)
+        return (id, name, needs_a_csv)

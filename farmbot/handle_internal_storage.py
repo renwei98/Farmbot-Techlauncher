@@ -3,7 +3,7 @@ import requests
 import os
 import http_requests as http
 
-print(type(os.getenv("API_KEY")))
+
 
 headers = {'Authorization': 'Bearer ' + os.getenv("API_KEY"), 'content-type': 'application/json'}
 logs = requests.get('https://my.farmbot.io/api/logs', headers=headers)
@@ -34,10 +34,10 @@ PATH = "../.internal_data/farmbot_commands.yaml"
 # been sent, we will have to delete the old one from FarmBot and update all objects
 # that have it as a child, and update all "auto"==True objects that have it as its parent.
 
-def unique_name(hash):
+def unique_name():
     f = open(PATH,mode='r+')
     file = yaml.load(f)
-    name = "auto_" #+ hash[0:3]
+    name = "auto_"
     # return name
     index = 1
     if file is not None:
@@ -59,15 +59,26 @@ def unique_name(hash):
     f.close()
     return name
 
-def check_exist(name):
+def check_exist(name, map):
+    """returns
+       (does it exist, ID, hash of command, hash of csv, list of its children) """
     f = open(PATH,mode='r')
     file = yaml.load(f)
     f.close()
     if file is None:
-        return (False, -1, -9, [])
+        return (False, -1, -9, -9, [])
     elif name in file:
-        return (True, file[name]["id"], file[name]["hash"], file[name]["children"])
-    return (False, -1, -9, [])
+        if "CSV" in file[name]:
+            return (True, file[name]["id"], file[name]["hash"], file[name]["csv_hash"], file[name]["children"])
+        else:
+            return (True, file[name]["id"], file[name]["hash"], -9, file[name]["children"])
+    elif name+"_"+map in file:
+        n = name+"_"+map
+        if "CSV" in file[n]:
+            return (True, file[n]["id"], file[n]["hash"], file[n]["csv_hash"], file[n]["children"])
+        else:
+            return (True, file[n]["id"], file[n]["hash"], -9, file[n]["children"])
+    return (False, -1, -9, -9, [])
 
 def check_need_csv(name):
     f = open(PATH,mode='r')
@@ -126,6 +137,7 @@ def delete_outdated(name):
     children = []
     if "children" in file[name]:
         children = file[name]["children"]
+    print("\n object to be deleted: ",file[name])
     http.delete_command(file[name]["id"], file[name]["kind"])
     del file[name]
     if len(file.keys())!=0:
