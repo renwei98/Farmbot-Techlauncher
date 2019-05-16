@@ -30,7 +30,8 @@ if args.login:
     os.environ("EMAIL") = username_input;
     password_input = input("Enter password: ");
     os.environ("PASSWORD") = password_input;
-    file.write(os.environ("EMAIL"), os.environ("PASSWORD"));
+    file.write(os.environ("EMAIL"));
+    file.write(os.environ("PASSWORD"));
     file.close();
 if args.logout:
     # delete the content of .env file
