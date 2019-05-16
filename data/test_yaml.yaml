@@ -1,42 +1,61 @@
 options:
  other_files: []
- scale: "5 mm"
- default_speed: "100"
+ scale: "20 cm"
+ default_speed: 100
  default_z: 0
  default_x_offset: 0
  default_y_offset: 0
  default_z_offset: 0
- pin_aliases: {"water_pin" : "PIN_1", "pincer_pin" : "PIN_2"}
+ pin_aliases: {"light" : [1840, "p"], "moisture" : [204, "s"]}
+
+
+
+water_event:
+ start_time: "01/06/2019 12:15"
+ actions: "reg_needs_map"
+
+reg_needs_map:
+  schedule:
+   - {groups: ["extra_water_group"], every: 2, unit: days, max: 15, actions: [{to_self:{}}, {write_pin : {pin: 9, value : "ON", mode: "D"}}, {wait : 5000}, {write_pin : {pin: 9, value : "OFF", mode: "D"}}]}
+   - {groups: ["normal_water_group"], every: 5, unit: days, max: 6, actions: [{to_self:{}}, {write_pin : {pin: 9, value : "ON", mode: "D"}}, {wait : 5000}, {write_pin : {pin: 9, value : "OFF", mode: "D"}}]}
+
+
+
+#regimen_1:
+# schedule: [{group: ["extra_water_group"], type: ["radish"], every: 4, unit: "hours", max: 10, actions: [{move_rel: {x: 10, y: 10, z: 10, speed: 10}}, {move_abs: {x: 0, y: 0}}, {wait : 1000} ] } ]
+
+#regimen_2:
+# schedule: [{group: ["extra_water_group"], every: 4, unit: "hours", max: 10, actions: "move_farmbot_1"}]
+
+#move_farmbot_2:
+# colour: "green"
+# actions: [{if : {cond: "x = 1023", then: "move_farmbot_1"}}]
+
+#radish_water_1:
+# start_time: "14/06/2019 23:00"
+# groups: ["extra_water_group"]
+# repeat_event: {every: 1, unit = "hours", until: "14/12/2019 23:00"}
+# schedule:
+#  - {groups: ["extra_water_group"], types: ["radish"], days: [1,2,3], times: ["23:00", "12:00"], actions: "move_farmbot_2"}
 
 #radish_water_1:
 # start_time: "14/06/2019 23:00"
 # group: ["extra_water_group"]
-# repeat_event: {every: 1, unit = "hours", until: "14/12/2019 23:00"} 
+# repeat_event: {every: 1, unit : "hours", until: "14/12/2019 23:00"}
 # schedule:
-#  - {group: ["extra_water_group"], type: ["radish"], days: [1,2,3], times: ["23:00", "12:00"], actions: "move_farmbot_2"}
+#  - {groups: ["extra_water_group"], types: ["radish"], days: [1,2,3], times: ["23:00", "12:00"], actions: "move_farmbot_1"}
 
 #water_2:
 # start_time: "14/06/2019 22:00"
-# group: ["extra_water_group"]
-# type: ["radish"]
-# schedule: 
+# groups: ["extra_water_group"]
+# types: ["radish"]
+# schedule:
 #  - {every: 4, unit: "minutes", max: 10, actions: [{MOVE_REL: {x: 10, y: 10, z: 10, speed: 10}}, "move_farmbot_2"]}
 #  - {days: [1,2,3], times: ["23:00", "12:00"], actions: "move_farmbot_2"}
 
 #radish_3:
 # start_time: "14/06/2019 21:00"
-# type: ["radish"]
-# actions: 
+# types: ["radish"]
+# actions:
 #  - {MOVE_REL: {x: 10, y: 10, z: 10, speed: 10, x_off: 10, y_off: 9, z_off: 8}}
 #  - {MOVE_ABS: {x: 0, y: 0}}
-
-regimen_1:
- schedule: [{group: ["extra_water_group"], type: ["radish"], every: 4, unit: "hours", max: 10, actions: [{move_rel: {x: 10, y: 10, z: 10, speed: 10}}, {move_abs: {x: 0, y: 0}}]}]
-
-regimen_2:
- schedule: [{group: ["extra_water_group"], type: ["radish"], every: 4, unit: "hours", max: 10, actions: ["move_farmbot_2"]}]
-
-move_farmbot_2:
- colour: "green"
- actions: [{move_abs: {x: 0, y: 0}}]
-
