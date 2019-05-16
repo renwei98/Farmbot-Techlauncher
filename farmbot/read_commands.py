@@ -89,7 +89,7 @@ class ActionHandler():
                     else:
                         return self.obj_from_name(file[name]["actions"])
                 else:
-                    print("Invalid format for object", name)
+                    raise Exception("Invalid format for object", name)
 
     def load_commands(self):
         """Modifies self.source_files, self.seq_script, and self.reg_script
@@ -101,9 +101,9 @@ class ActionHandler():
                 if "start_time" in file[name]:
                     self.make_farm_event(file[name], source, name)
                 elif "schedule" in file[name]:
-                    print(self.make_regimen(file[name], source, obj_name=name))
+                    self.make_regimen(file[name], source, obj_name=name)
                 elif "actions" in file[name]:
-                    print(self.make_sequence(file[name], source, obj_name=name))
+                    self.make_sequence(file[name], source, obj_name=name)
                 else:
                     pass
             f.close()
@@ -154,11 +154,6 @@ class ActionHandler():
          int(time[11:13]), int(time[14:]), tzinfo=tz)
         string = tzaware_dt.isoformat()
         string = string[:19]+".000"+string[19:]
-        # string = time[6:10]+"-"+time[3:5]+"-"+time[0:2]+"T"+time[11:]+":00"
-        # tz = datetime.datetime.utcnow().isoformat()
-        # print("\n tz type", type(tz))
-        # print("\n", tz, "\n")
-        # print("\n time " + string + tz[19:] + "\n")
         return tzaware_dt.isoformat()
 
 
@@ -224,7 +219,7 @@ class ActionHandler():
             elif yaml_obj == "s":
                 return "\"Sensor\""
             else:
-                print("error 924")
+                raise Exception("A pin alias must have either \"p\" for Peripheral or \"s\" for Sensor.")
         elif field == "condition":
             if yaml_obj == "=":
                 return "\"is\""
@@ -235,7 +230,7 @@ class ActionHandler():
             elif yaml_obj == "!=":
                 return "\"not\""
             else:
-                print("error 324")
+                raise Exception("The condition for an if-else statement must be one of =, <, >, !=.")
 
     def pin_name(self, pin, source_file):
         if pin in self.source_files[source_file]["pin_aliases"]:
@@ -401,7 +396,6 @@ class ActionHandler():
            hash: the new hash of the object"""
         existance, id, stored_hash, csv_hash, children = stor.check_exist(name, self.map)
         f = open(self.map, 'r')
-        # print("looking if exists: ",name, " or ",name+"_"+self.map)
         if existance:
             needs_a_csv = (csv_hash != -9)
             new_csv_hash = -9
@@ -414,7 +408,6 @@ class ActionHandler():
             # if (str(stored_hash) == new_hash):
             if (stored_hash == new_hash) and not (needs_a_csv and csv_hash != new_csv_hash):
                 # If the object has user-defined children, check if its children changed.
-                # print("\n old csv hash ",csv_hash,"\n new csv hash ",new_csv_hash,"\n")
                 for old_child in children:
                     if old_child[:5] != "auto_":
                         for source in self.source_files:
@@ -428,24 +421,19 @@ class ActionHandler():
                                     # when we re-send the parent.
                                     stor.delete_object(name)
                                     # If one of its children have changed
-                                    print("result 1",name)
                                     return (True, id)
                 # If neither it nor its children have changed
-                print("result 2",name)
                 return (False, id)
             else:
                 # If the raw command's hash has changed
                 # or the hash of the CSV it needs has changed.
                 if needs_a_csv:
                     stor.delete_object(name+"_"+self.map)
-                    print("result 3",name)
                 else:
                     stor.delete_object(name)
-                    print("result 4",name)
                 return (True, id)
         else:
             # Does not exist and needs to be made.
-            print("result 5",name)
             return (True, id)
 
     def make_sequence(self, yaml_obj, source_file, obj_name = None):
@@ -489,7 +477,6 @@ class ActionHandler():
         script = script + "\n  \"name\": \"" + name + "\","
         data = {name : {"auto": auto, "kind" : "sequence", "hash":hash, "children":[] }}
         if needs_a_csv:
-            print("we know ",name," needs a csv from the start")
             data[name]["CSV"] = self.map
             data[name]["csv_hash"] = sha224((open(self.map,"r").read()).encode()).hexdigest()
 
@@ -574,22 +561,13 @@ class ActionHandler():
                     script = script + self.parse_action(action, source_file)
 
         script = script[:-1] # Truncate off the last comma of the last action
-        # script = script + "\n      \"uuid\": \"" + name + "\"\n    }\n  ]\n}"
         script = script + "\n  ]\n}"
-        # script = json.dumps(json.loads(script), indent="  ", sort_keys=False)
-
-        file = open("celeryscript.txt",'a')
-        file.write(script)
-        # file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
-        file.close()
-        # print("\n",type(json.loads(script)),"\n")
 
         needs_a_csv = (needs_a_csv or child_needs_csv)
 
         script = json.loads(script)
         # If one of its children needs a CSV file, but it wasn't obvious that itself did.
         if needs_a_csv and name[-4:]!=".csv" and name[:5]!="auto_":
-            print("we know ",name," needs a csv later")
             old_name = name
             name = name + "_" + self.map
             data = {name: data[old_name]}
@@ -645,7 +623,6 @@ class ActionHandler():
         data = {name : {"auto": auto, "kind" : "regimen", "hash":hash, "children":[]}}
 
         if needs_a_csv:
-            print("we know ",name," needs a csv from the start")
             data[name]["CSV"] = self.map
             data[name]["csv_hash"] = sha224((open(self.map,"r").read()).encode()).hexdigest()
 
@@ -706,20 +683,12 @@ class ActionHandler():
                 script = script + "\n      \"sequence_id\": " + str(seq_id)
                 script = script + "\n    },"
         script = script[0:-1] # Truncate off the last comma of the last item
-        # script = script + "\n  ], \n  \"uuid\": \""+name+"\"\n}"
         script = script + "\n  ]\n}"
-        # script = json.dumps(json.loads(script), indent="  ", sort_keys=False)
-
-        file = open("celeryscript.txt",'a')
-        file.write(script)
-        # file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
-        file.close()
 
         needs_a_csv = (needs_a_csv or child_needs_csv)
 
         script = json.loads(script)
         if needs_a_csv and name[-4:]!=".csv":
-            print("we know ",name," needs a csv later")
             old_name = name
             name = name + "_" + self.map
             data = {name: data[old_name]}
@@ -774,7 +743,6 @@ class ActionHandler():
         data = {name : {"auto": 0, "kind" : "farm_event", "hash":hash, "children":[]}}
 
         if needs_a_csv:
-            print("we know ",name," needs a csv from the start")
             data[name]["CSV"] = self.map
             data[name]["csv_hash"] = sha224((open(self.map,"r").read()).encode()).hexdigest()
 
@@ -806,16 +774,10 @@ class ActionHandler():
         script = script + "\n  \"executable_id\" : " + str(id) +  "\n }"
         data[name]["children"].append(n)
 
-        file = open("celeryscript.txt",'a')
-        file.write(script)
-        # file.write(json.dumps(json.loads(script), indent="  ", sort_keys=False))
-        file.close()
-
         needs_a_csv = (needs_a_csv or child_needs_csv)
 
         script = json.loads(script)
         if needs_a_csv and name[-4:]!=".csv" and name[:5]!="auto_":
-            print("we know ",name," needs a csv later")
             old_name = name
             name = name + "_" + self.map
             data = {name: data[old_name]}

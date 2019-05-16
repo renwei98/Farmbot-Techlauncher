@@ -115,7 +115,6 @@ def delete_object(name):
         children = file[name]["children"]
     http.delete_command(file[name]["id"], file[name]["kind"])
     del file[name]
-    # print("deleted ",name, " new file ",file)
     if len(file.keys())!=0:
         f = open(PATH,mode='w')
         yaml.dump(file, f)
@@ -137,7 +136,6 @@ def delete_outdated(name):
     children = []
     if "children" in file[name]:
         children = file[name]["children"]
-    print("\n object to be deleted: ",file[name])
     http.delete_command(file[name]["id"], file[name]["kind"])
     del file[name]
     if len(file.keys())!=0:
