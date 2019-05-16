@@ -27,9 +27,7 @@ if args.login:
     # login with new username and password -> generate a new .env file
     file = open(".env", "w+");
     username_input = input("Enter email address: ");
-    os.environ("EMAIL") = username_input;
     password_input = input("Enter password: ");
-    os.environ("PASSWORD") = password_input;
     file.write(os.environ("EMAIL"));
     file.write(os.environ("PASSWORD"));
     file.close();
