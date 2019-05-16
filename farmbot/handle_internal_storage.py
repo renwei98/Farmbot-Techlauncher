@@ -8,7 +8,7 @@ import http_requests as http
 headers = {'Authorization': 'Bearer ' + os.getenv("API_KEY"), 'content-type': 'application/json'}
 logs = requests.get('https://my.farmbot.io/api/logs', headers=headers)
 
-PATH = "../.internal_data/farmbot_commands.yaml"
+PATH = ".internal_data/farmbot_commands.yaml"
 
 
 # if there is already an object with the same *NAME* in internal storage

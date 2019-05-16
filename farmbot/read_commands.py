@@ -17,7 +17,7 @@ import pytz
 
 class ActionHandler():
     PATH = "../.internal_data/farmbot_commands.yaml"
-    DATA_PATH = "../data/"
+    DATA_PATH = "data/"
     def __init__(self, yaml_file_names, csv_file_name=None):
         """yaml_file_names  : a list of YAML files
            csv_file_names   : a list of CSV files holding map coordinates"""
@@ -30,7 +30,7 @@ class ActionHandler():
     def get_defaults(self, yaml_file_names):
         sources = set(yaml_file_names)
         for file_name in sources:
-            file = yaml.load(open(DATA_PATH+file_name, 'r'))
+            file = yaml.load(open(ActionHandler.DATA_PATH+file_name, 'r'))
             self.source_files[file_name] = {}
             self.source_files[file_name]["pin_aliases"] = {}
             if file["options"] is not None and "options" in file:
@@ -78,7 +78,7 @@ class ActionHandler():
            This function figues out if a name refers to a regimen or a sequence,
            calls the right function, and give returns the ID."""
         for file_name in self.source_files:
-            file = yaml.load(open(DATA_PATH+file_name))
+            file = yaml.load(open(ActionHandler.DATA_PATH+file_name))
             if name in file:
                 if "schedule" in file[name]:
                     id, name, this_needs_csv = self.make_regimen(file[name], file_name, name)
@@ -96,7 +96,7 @@ class ActionHandler():
         """Modifies self.source_files, self.seq_script, and self.reg_script
            corrosponds to 'process_a_file' in the pseudocode"""
         for source in self.source_files:
-            f = open(DATA_PATH+source, "r")
+            f = open(ActionHandler.DATA_PATH+source, "r")
             file = yaml.load(f)
             for name in file:
                 if "start_time" in file[name]:
@@ -270,7 +270,7 @@ class ActionHandler():
         if type(action) is str:
             # This means the action is actually another sequence
             for source in self.source_files:
-                f = open(DATA_PATH+source, 'r')
+                f = open(ActionHandler.DATA_PATH+source, 'r')
                 file = yaml.load(f)
                 f.close()
                 if action in file:
@@ -321,7 +321,7 @@ class ActionHandler():
             script = script + "\"speed\": " + self.default(action, "speed",source_file) + "} },"
         elif "to_plant" in action:
             try:
-                with open(DATA_PATH+self.map, "r") as csv_file:
+                with open(ActionHandler.DATA_PATH+self.map, "r") as csv_file:
                     reader = csv.DictReader(csv_file)
                     args = action["to_plant"]
                     for row in reader:
@@ -352,7 +352,7 @@ class ActionHandler():
                 seq_needed = args["then"]
                 seq_id = -1
                 for source in self.source_files:
-                    f = open(DATA_PATH+source, 'r')
+                    f = open(ActionHandler.DATA_PATH+source, 'r')
                     file = yaml.load(f)
                     f.close()
                     if seq_needed in file:
@@ -370,7 +370,7 @@ class ActionHandler():
                 seq_needed = args["else"]
                 seq_id = -1
                 for source in self.source_files:
-                    f = open(DATA_PATH+source, 'r')
+                    f = open(ActionHandler.DATA_PATH+source, 'r')
                     file = yaml.load(f)
                     f.close()
                     if seq_needed in file:
@@ -396,7 +396,7 @@ class ActionHandler():
            name: the name of the object
            hash: the new hash of the object"""
         existance, id, stored_hash, csv_hash, children = stor.check_exist(name, self.map)
-        f = open(DATA_PATH+self.map, 'r')
+        f = open(ActionHandler.DATA_PATH+self.map, 'r')
         if existance:
             needs_a_csv = (csv_hash != -9)
             new_csv_hash = -9
@@ -412,7 +412,7 @@ class ActionHandler():
                 for old_child in children:
                     if old_child[:5] != "auto_":
                         for source in self.source_files:
-                            f = open(DATA_PATH+source, mode='r+')
+                            f = open(ActionHandler.DATA_PATH+source, mode='r+')
                             file = yaml.load(f)
                             f.close()
                             if old_child in file:
@@ -479,12 +479,12 @@ class ActionHandler():
         data = {name : {"auto": auto, "kind" : "sequence", "hash":hash, "children":[] }}
         if needs_a_csv:
             data[name]["CSV"] = self.map
-            data[name]["csv_hash"] = sha224((open(DATA_PATH+self.map,"r").read()).encode()).hexdigest()
+            data[name]["csv_hash"] = sha224((open(ActionHandler.DATA_PATH+self.map,"r").read()).encode()).hexdigest()
 
         script = script + "\n  \"body\": [ \n    "
         actions = yaml_obj["actions"]
         if self.map is not None or needs_a_csv:
-            with open(DATA_PATH+self.map, "r") as csv_file:
+            with open(ActionHandler.DATA_PATH+self.map, "r") as csv_file:
                 reader = csv.DictReader(csv_file)
                 if "groups" in yaml_obj and "types" in yaml_obj:
                     groups = yaml_obj["groups"]
@@ -573,7 +573,7 @@ class ActionHandler():
             name = name + "_" + self.map
             data = {name: data[old_name]}
             data[name]["CSV"] = self.map
-            data[name]["csv_hash"] = sha224((open(DATA_PATH+self.map,"r").read()).encode()).hexdigest()
+            data[name]["csv_hash"] = sha224((open(ActionHandler.DATA_PATH+self.map,"r").read()).encode()).hexdigest()
             script["name"] = name
 
         id = http.new_command(script,"sequence")
@@ -625,7 +625,7 @@ class ActionHandler():
 
         if needs_a_csv:
             data[name]["CSV"] = self.map
-            data[name]["csv_hash"] = sha224((open(DATA_PATH+self.map,"r").read()).encode()).hexdigest()
+            data[name]["csv_hash"] = sha224((open(ActionHandler.DATA_PATH+self.map,"r").read()).encode()).hexdigest()
 
         list_of_sequences = [] # [(seq_id : , time_offsets : [])]
 
@@ -655,7 +655,7 @@ class ActionHandler():
                 # and we need to find it.
                 looking_for = sequence["actions"]
                 for file_name in self.source_files:
-                    f = open(DATA_PATH+file_name, 'r')
+                    f = open(ActionHandler.DATA_PATH+file_name, 'r')
                     file = yaml.load(f)
                     if looking_for in file:
                         send_this["actions"] = file[looking_for]["actions"]
@@ -694,7 +694,7 @@ class ActionHandler():
             name = name + "_" + self.map
             data = {name: data[old_name]}
             data[name]["CSV"] = self.map
-            data[name]["csv_hash"] = sha224((open(DATA_PATH+self.map,"r").read()).encode()).hexdigest()
+            data[name]["csv_hash"] = sha224((open(ActionHandler.DATA_PATH+self.map,"r").read()).encode()).hexdigest()
             script["name"] = name
 
         id = http.new_command(script,"regimen")
@@ -741,7 +741,7 @@ class ActionHandler():
 
         if needs_a_csv:
             data[name]["CSV"] = self.map
-            data[name]["csv_hash"] = sha224((open(DATA_PATH+self.map,"r").read()).encode()).hexdigest()
+            data[name]["csv_hash"] = sha224((open(ActionHandler.DATA_PATH+self.map,"r").read()).encode()).hexdigest()
 
         script  = script + "\n  \"start_time\" : \"" + self.format_time(yaml_obj["start_time"]) + "\","
         if "repeat_event" in yaml_obj:
@@ -779,7 +779,7 @@ class ActionHandler():
             name = name + "_" + self.map
             data = {name: data[old_name]}
             data[name]["CSV"] = self.map
-            data[name]["csv_hash"] = sha224((open(DATA_PATH+self.map,"r").read()).encode()).hexdigest()
+            data[name]["csv_hash"] = sha224((open(ActionHandler.DATA_PATH+self.map,"r").read()).encode()).hexdigest()
             script["name"] = name
 
         id = http.new_command(script,"farm_event")

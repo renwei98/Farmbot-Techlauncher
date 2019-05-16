@@ -10,7 +10,7 @@ parser.add_argument("-m","--map", type=str, default=None,
                     help="a single CSV file containing the map of plant locations.")
 parser.add_argument("-d","--delete", type=str,
                     help="a) 'all', or b) a list of commands to delete, comma separated with NO spaces.")
-parser.add_argument("-n","--new_user", type=str, nargs=2,
+parser.add_argument("-i","--login", type=str, nargs=2,
                     help="Login to your FarmBot using your existing account. If this option is not chosen, the program will assume you are still logged in from last time.")
 parser.add_argument("-o","--logout", type=str,
                     help="Logout the Farmbot WebApp.")
@@ -23,7 +23,7 @@ args = parser.parse_args()
 # text = open(myFile)
 # print(text.read())
 
-if args.new_user:
+if args.login:
     token = token_gen.get_token(args.new_user[0], args.new_user[1])
 
     # login with new username and password -> generate a new .env file
