@@ -12,19 +12,30 @@ move_farmbot_1:
   kind: sequence
 regimen_2:
   auto: 1
-  children: [move_farmbot_1, auto_1]
+  children:
+  - move_farmbot_1
+  - auto_1
   hash: db79868aee4e78a6cd551ec040b2989ec2348d03bc80952fb067e614
   id: 1819
   kind: regimen
-auto_2:
+auto_1:
   auto: 1
   children: []
-  hash: bf82ea79f93e2cc4038978d1d152a6ca7527007a1e5105c433c2cb3c
-  id: 19881
+  hash: 02b16d572b111535d76bf27124a7fc7efecb7ddeecd11ac82a03d4c4
+  id: 19879
   kind: sequence
-regimen_1:
+auto_2: {}
+move_farmbot_1:
   auto: 1
-  children: [auto_2]
-  hash: 03884617a34c81269caa6f0dbea797642eb8c735777d6cb5d681b0b6
-  id: 1820
+  children: []
+  hash: 02b16d572b111535d76bf27124a7fc7efecb7ddeecd11ac82a03d4c4
+  id: 19880
+  kind: sequence
+regimen_2:
+  auto: 1
+  children:
+  - move_farmbot_1
+  - auto_1
+  hash: db79868aee4e78a6cd551ec040b2989ec2348d03bc80952fb067e614
+  id: 1819
   kind: regimen
